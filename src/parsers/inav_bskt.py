@@ -45,14 +45,14 @@ class INAVBskt(BaseParser):
             return pd.DataFrame([metadata])
 
         first_row = chunk[0]
-        primary_key = self.row_value(first_row, 0, "TRADE_DATE") or "TRADE_DATE"
-
-        metadata[primary_key] = self.row_value(first_row, 1)
         metadata.update({
+            metadata[self.row_value(first_row, 0)]: self.row_value(first_row, 1),
             "SS_LONG_CODE": self.row_value(first_row, 2),
             "FULL_NAME": self.row_value(first_row, 4),
-            "TICKER": self.row_value(first_row, 5),
+            "TICKER_1": self.row_value(first_row, 5),
+            "TICKER_2": self.row_value(first_row, 6),
             "BASE_CURRENCY": self.row_value(first_row, 7),
+            metadata[self.row_value(first_row, 8)]: self.row_value(first_row, 9)
         })
         metadata.update(self.pairs_to_dict(chunk[1:]))
 

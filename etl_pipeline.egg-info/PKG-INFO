@@ -1,0 +1,5 @@
+Metadata-Version: 2.4
+Name: etl-pipeline
+Version: 0.1.0
+Summary: ETL pipeline utilities and parsers
+Requires-Python: >=3.10

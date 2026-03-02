@@ -13,10 +13,21 @@ DATA_DIR = os.path.join(PROJECT_ROOT, "data", "raw")
 
 NULL_LIKE_VALUES = ["", " ", "NA", "N/A", "NULL", "NONE", "-"]
 
+BOOLEAN_MAP = {
+    "TRUE": True,
+    "FALSE": False,
+    "Y": True,
+    "N": False,
+    "YES": True,
+    "NO": False,
+    "1": True,
+    "0": False,
+}
+
 # Metadata type map for NAV/INAV files
 FUND_METADATA_TYPE_MAP = {
-    "TRADE_DATE": "datetime64[s]",
     "SS_LONG_CODE": str,
+    "TRADE_DATE": "datetime64[ns]",
     "FULL_NAME": str,
     "TICKER": str,
     "BASE_CURRENCY": str,
