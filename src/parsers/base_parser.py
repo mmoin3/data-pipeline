@@ -3,17 +3,24 @@ import pandas as pd
 
 class BaseParser:
     """Simple file reader that detects type by extension and reads into a DataFrame.
-    Can be subclassed to add custom logic for non-standard formats.
+    Can be subclassed to add custom logic for non-standard file_type_overrides.
     """
     def __init__(self, path: str, logger=logging.getLogger(__name__)):
         self.path = path
         self.logger = logger
 
-    def read_into_dataframe(self, **kwargs) -> pd.DataFrame:
+    def read_into_dataframe(self, file_type_override:str=None,**kwargs) -> pd.DataFrame:
         """Read file and return DataFrame. Detect type by extension and dispatch.
         Data must already be in tabular for this method to work in isolation
+
+        file_type_override: param can be used to override file extension detection
+        **kwargs: passed directly to pandas read functions, e.g. read_csv or read_excel
         """
-        ext = os.path.splitext(self.path)[1].lower()
+        if file_type_override:
+            ext = file_type_override
+        else:
+            ext = os.path.splitext(self.path)[1].lower()
+            
         if ext in {".csv",".ndm01"}:
             return pd.read_csv(self.path, **kwargs)
         if ext in {".xls", ".xlsx", ".xlsm", ".xlsb"}:
