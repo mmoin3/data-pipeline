@@ -115,7 +115,6 @@ class BaseParser:
         """Convert parsed rows to DataFrame, padding uneven rows safely."""
         if not rows:
             return pd.DataFrame()
-
         header = rows[0]
         data_rows = rows[1:]
 

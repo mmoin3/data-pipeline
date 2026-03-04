@@ -18,7 +18,6 @@ def typecast_by_map(
             continue
 
         series = _normalize_text(out[col])
-
         if target_type == "datetime64[ns]":
             out[col] = pd.to_datetime(series, errors="coerce")
         elif target_type == float:
