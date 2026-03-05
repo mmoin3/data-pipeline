@@ -1,7 +1,14 @@
 # Virtual environment and environment files
+.env
+.env.local
+.env.*.local
 .venv/
 venv/
-.env
+env/
+myvenv/
+
+# Re-include an example file
+!.env.example
 
 #logs and databases
 
@@ -12,6 +19,7 @@ venv/
 __pycache__/
 *.pyc
 .pytest_cache/
+
 
 etl_pipeline.egg-info/
 
