@@ -99,7 +99,7 @@ class DataFrameCleaner:
         )
 
     def _normalize_boolean(self, series: pd.Series) -> pd.Series:
-        return series.str.upper().map(self.BOOLEAN_MAP).astype("boolean")
+        return series.str.upper().map(BOOLEAN_MAP).astype("boolean")
 
     def _is_datetime_target(self, target_type: object) -> bool:
         normalized = str(target_type).strip().lower()

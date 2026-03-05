@@ -1,5 +1,6 @@
 # Virtual environment and environment files
 .venv/
+venv/
 .env
 
 #logs and databases
@@ -12,5 +13,5 @@ __pycache__/
 *.pyc
 .pytest_cache/
 
-
+etl_pipeline.egg-info/
 

@@ -21,7 +21,7 @@ class INAVBskt(BaseParser):
             if not parsed_rows:
                 return []
 
-            fund_blocks = self.split_row_blocks(parsed_rows, start_marker="TRADE_DATE")
+            fund_blocks = self.split_row_blocks(parsed_rows, start_marker="TRADE_DATE") or ["TRADE_DATE"]
             funds_data = []
 
             for block in fund_blocks:
@@ -45,14 +45,16 @@ class INAVBskt(BaseParser):
             return pd.DataFrame([metadata])
 
         first_row = chunk[0]
+        primary_key = self.row_value(first_row, 0) or "TRADE_DATE"
+        secondary_key = self.row_value(first_row, 8) or "CREATION_UNIT_SIZE"
         metadata.update({
-            metadata[self.row_value(first_row, 0)]: self.row_value(first_row, 1),
+            primary_key: self.row_value(first_row, 1),
             "SS_LONG_CODE": self.row_value(first_row, 2),
             "FULL_NAME": self.row_value(first_row, 4),
             "TICKER_1": self.row_value(first_row, 5),
             "TICKER_2": self.row_value(first_row, 6),
             "BASE_CURRENCY": self.row_value(first_row, 7),
-            metadata[self.row_value(first_row, 8)]: self.row_value(first_row, 9)
+            secondary_key: self.row_value(first_row, 9),
         })
         metadata.update(self.pairs_to_dict(chunk[1:]))
         return pd.DataFrame([metadata])
