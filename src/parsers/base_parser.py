@@ -1,13 +1,13 @@
 import csv, io, os, logging
 import pandas as pd
 
+logger = logging.getLogger(__name__)
+
 class BaseParser:
-    """Simple file reader that detects type by extension and reads into a DataFrame.
-    Can be subclassed to add custom logic for non-standard file_type_overrides.
-    """
-    def __init__(self, path: str, logger=logging.getLogger(__name__)):
+    """Simple file reader that detects type by extension and reads into a DataFrame."""
+    
+    def __init__(self, path: str):
         self.path = path
-        self.logger = logger
 
     def read_into_dataframe(self, file_type_override:str=None,**kwargs) -> pd.DataFrame:
         """Read file and return DataFrame. Detect type by extension and dispatch.
@@ -31,7 +31,7 @@ class BaseParser:
         if ext == ".txt":
             return pd.read_table(self.path, **kwargs)
         else:
-            self.logger.error(f"Unsupported file type: {ext}")
+            logger.error(f"Unsupported file type: {ext}")
             return pd.DataFrame()
   
     def list_to_dataframe(self, lines: list[str], **kwargs) -> pd.DataFrame:
@@ -43,7 +43,7 @@ class BaseParser:
             df = pd.read_csv(io.StringIO(csv_text), **kwargs)
             return df
         except Exception as e:
-            self.logger.error(f"Failed to parse lines to DataFrame: {e}")
+            logger.error(f"Failed to parse lines to DataFrame: {e}")
             return pd.DataFrame()
         
     def get_blocks(self, table:pd.DataFrame, start_marker:str) -> list[pd.DataFrame]:
@@ -59,7 +59,7 @@ class BaseParser:
                 blocks.append(table[start:end].reset_index(drop=True))
             return blocks
         except Exception as e:
-            self.logger.error(f"Error splitting table into blocks: {e}")
+            logger.error(f"Error splitting table into blocks: {e}")
             return []
         
     def get_header_idx(self, data:pd.DataFrame, header_marker) -> int:
@@ -139,12 +139,4 @@ class BaseParser:
         """Safely get a row value by index."""
         return row[index] if index < len(row) else default
 
-    def pairs_to_dict(self, rows: list[list[str]], step: int = 2) -> dict[str, str]:
-        """Flatten rows of alternating key/value fields into a dictionary."""
-        flattened = {}
-        for row in rows:
-            for offset in range(0, len(row) - 1, step):
-                key = row[offset]
-                if key:
-                    flattened[key] = row[offset + 1]
-        return flattened
+    

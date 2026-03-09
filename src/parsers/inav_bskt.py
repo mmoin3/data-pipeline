@@ -1,5 +1,8 @@
+import logging
 import pandas as pd
 from .base_parser import BaseParser
+
+logger = logging.getLogger(__name__)
 
 class INAVBskt(BaseParser):
     """
@@ -16,15 +19,11 @@ class INAVBskt(BaseParser):
     Context:
     - Files are generated at end of a trading session
     - "Struck NAV" is the official NAV calculated at ~market close in NYC
-    - Holdings data represents fund positions at end of day, used for next day's creation/redemption 
-      activity and next day's iNAV calculations
+    - Holdings data represents fund positions at end of day, used for next day's
+      creation/redemption activity and next day's iNAV calculations.
     """
+    
     def extract(self) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """
-        Main extraction method for INAV/BSKT files. Reads lines, splits into fund blocks, extracts metadata and holdings.
-        Returns two Dataframes per file: one for all funds primary data, and the other all funds holdings data.
-        The nature of the source files requires some encrichment of the holdings dataframe with primary data fields.
-        """
         try:
             parsed_rows = self.read_rows()
             if not parsed_rows:
@@ -32,8 +31,8 @@ class INAVBskt(BaseParser):
 
             fund_blocks = self.split_row_blocks(parsed_rows, start_marker="TRADE_DATE") or ["TRADE_DATE"]
             
-            fund_metrics = pd.DataFrame() # Initialize empty dataframe to hold primary data for all funds
-            fund_holdings = pd.DataFrame() # Initialize empty dataframe to hold holdings data for all funds
+            fund_metrics = pd.DataFrame()
+            fund_holdings = pd.DataFrame()
 
             for block in fund_blocks:
                 header_idx = self.find_header_idx(block, markers={"CUSIP", "TICKER", "DESCRIPTION"})
@@ -49,11 +48,11 @@ class INAVBskt(BaseParser):
 
             return fund_metrics, fund_holdings
         except Exception as e:
-            self.logger.error(f"Failed to extract data: {e}")
+            logger.error(f"Failed to extract data: {e}")
             return
 
     def _extract_metadata(self, chunk: list[list[str]]) -> pd.DataFrame:
-        """Extract metadata from fixed-format top lines (no cleaning)."""
+        """Extract metadata from top lines."""
         metadata = {}
         first_row = chunk[0]
 
@@ -71,7 +70,7 @@ class INAVBskt(BaseParser):
         return pd.DataFrame([metadata])
     
     def _pairs_to_dict(self, rows: list[list[str]], step: int = 2) -> dict[str, str]:
-        """Flatten rows of alternating key/value fields into a dictionary."""
+        """Flatten rows into key-value dict."""
         flattened = {}
         for row in rows:
             for offset in range(0, len(row) - 1, step):
