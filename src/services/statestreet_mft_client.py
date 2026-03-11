@@ -14,7 +14,6 @@ FOLDERS = [
     "/Harvestportf"
 ]
 
-
 def login():
     """Create authenticated session with MFT.
     

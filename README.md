@@ -59,6 +59,7 @@ pip install -e .
 ```bash
 # Set up environment (create .env with your database credentials)
 # cp .env.example .env  # if .env.example exists
+# for mft login, paste the client.key, and client.crt credentials in the .\certs folder
 ```
 
 ### Optional: Bloomberg API Setup
@@ -77,7 +78,7 @@ This is required to use the `BloombergClient` for data extraction via BDH and BD
 from src.services.bloomberg_client import BloombergClient
 
 with BloombergClient() as client:
-    hist = client.BDH(["XIU CN Equity"], ["PX_LAST"], "20260101", "20260220","WEEKLY)
+    hist = client.BDH(["XIU CN Equity"], ["PX_LAST"], "20260101", "20260220","WEEKLY")
     snap = client.BDP(["XIU CN Equity"], ["PX_LAST", "VOLUME"])
 ```
 

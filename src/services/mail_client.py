@@ -1,9 +1,8 @@
 """Email sender using Outlook SMTP. Use app password for 2FA accounts."""
 import os, smtplib, logging, mimetypes
 from email.message import EmailMessage
-from dotenv import load_dotenv
+from config import EMAIL_ADDRESS, EMAIL_APP_PASSWORD
 
-load_dotenv()
 logger = logging.getLogger(__name__)
 
 def send_email(subject: str,
@@ -12,8 +11,8 @@ def send_email(subject: str,
                cc_emails: list[str] = None,
                bcc_emails: list[str] = None,
                attachments: list[str] = None,
-               from_email: str = os.getenv("EMAIL_ADDRESS"),
-               password: str = os.getenv("EMAIL_APP_PASSWORD"),
+               from_email: str = EMAIL_ADDRESS,
+               password: str = EMAIL_APP_PASSWORD,
                smtp_server: str = "smtp.office365.com",
                smtp_port: int = 587):
     """Send email via Outlook SMTP.

@@ -19,6 +19,7 @@ myvenv/
 __pycache__/
 *.pyc
 .pytest_cache/
+.DS_Store
 
 etl_pipeline.egg-info/
 

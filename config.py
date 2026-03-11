@@ -15,7 +15,7 @@ PROCESSED_DATA_DIR = os.path.join(ROOT_DIR, "data", "processed")
 ARCHIVED_DATA_DIR = os.path.join(ROOT_DIR, "data", "archived")
 
 # Define Database connection strings
-DB_PATH = os.path.join(ROOT_DIR, "HarvestOperations.db")
+DB_PATH = os.path.join(ROOT_DIR, "FundOperations.db")
 DB_CONN_STR = "sqlite:///{DB_PATH}"
 
 # Load .env variables
