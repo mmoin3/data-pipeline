@@ -77,7 +77,7 @@ This is required to use the `BloombergClient` for data extraction via BDH and BD
 from src.services.bloomberg_client import BloombergClient
 
 with BloombergClient() as client:
-    hist = client.BDH(["XIU CN Equity"], ["PX_LAST"], "20260101", "20260220")
+    hist = client.BDH(["XIU CN Equity"], ["PX_LAST"], "20260101", "20260220","WEEKLY)
     snap = client.BDP(["XIU CN Equity"], ["PX_LAST", "VOLUME"])
 ```
 

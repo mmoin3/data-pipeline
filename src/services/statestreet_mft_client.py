@@ -1,3 +1,4 @@
+"""State Street MFT client for downloading portfolio data via SFTP."""
 import requests
 import urllib3
 import logging
@@ -15,7 +16,14 @@ FOLDERS = [
 
 
 def login():
-    """Create authenticated session."""
+    """Create authenticated session with MFT.
+    
+    Returns:
+        requests.Session: Authenticated session with cert and credentials.
+    
+    Raises:
+        Exception: If login fails.
+    """
     session = requests.Session()
     session.cert = (MFT_CERT_PATH, MFT_KEY_PATH)
     
@@ -33,7 +41,15 @@ def login():
 
 
 def list_files(session, folder):
-    """List files in folder."""
+    """List files in MFT folder.
+    
+    Args:
+        session: Authenticated requests session.
+        folder: Folder path (e.g., '/ETFGlobalHarvest/fromSSC').
+    
+    Returns:
+        list: File metadata dictionaries.
+    """
     r = session.get(
         f"{MFT_URL}/files{folder}",
         params={
@@ -54,7 +70,16 @@ def list_files(session, folder):
 
 
 def download_file(session, folder, filename):
-    """Download file from server if it doesn't already exist."""
+    """Download file from MFT if not already present.
+    
+    Args:
+        session: Authenticated requests session.
+        folder: MFT folder path.
+        filename: File to download.
+    
+    Returns:
+        Path: Path to downloaded file.
+    """
     DL_FOLDER.mkdir(parents=True, exist_ok=True)
     path = DL_FOLDER / filename
     
@@ -79,7 +104,7 @@ def download_file(session, folder, filename):
 
 
 def run():
-    """Download files from MFT."""
+    """Download all files from configured MFT folders."""
     session = login()
     
     for folder in FOLDERS:

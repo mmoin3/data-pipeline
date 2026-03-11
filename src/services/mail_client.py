@@ -1,7 +1,4 @@
-"""
-Simple email sender using SMTP with Outlook.
-Uses App Password for 2FA accounts.
-"""
+"""Email sender using Outlook SMTP. Use app password for 2FA accounts."""
 import os, smtplib, logging, mimetypes
 from email.message import EmailMessage
 from dotenv import load_dotenv
@@ -19,23 +16,24 @@ def send_email(subject: str,
                password: str = os.getenv("EMAIL_APP_PASSWORD"),
                smtp_server: str = "smtp.office365.com",
                smtp_port: int = 587):
-    """
-    Send an email via Outlook SMTP.
+    """Send email via Outlook SMTP.
     
-    For 2FA accounts, use an App Password (not your regular password).
-    Generate at: https://security.microsoft.com -> App passwords
+    For 2FA accounts, use app password from https://security.microsoft.com
     
     Args:
         subject: Email subject
         body: Email body text
-        to_email: Recipient email address
-        cc_emails: Optional list of CC recipient addresses
-        bcc_emails: Optional list of BCC recipient addresses
-        attachments: Optional list of file paths to attach
-        from_email: Sender email address (default from .env)
-        password: Email account password or app password (default from .env)
-        smtp_server: SMTP server address (default Outlook)
-        smtp_port: SMTP server port (default 587 for Outlook)
+        to_email: Recipient email(s)
+        cc_emails: Optional CC recipients
+        bcc_emails: Optional BCC recipients
+        attachments: Optional file paths to attach
+        from_email: Sender address (default from .env)
+        password: App password (default from .env)
+        smtp_server: SMTP server (default smtp.office365.com)
+        smtp_port: SMTP port (default 587)
+    
+    Returns:
+        None
     """
     if not all([from_email, password]):
         logger.error("Missing Outlook credentials in .env")
