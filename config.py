@@ -7,45 +7,45 @@ import os, sys
 import logging
 from pathlib import Path
 from dotenv import load_dotenv
+import urllib
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Save Important paths as constants
 ROOT_DIR = Path(__file__).parent
 RAW_DATA_DIR = os.path.join(ROOT_DIR, "data", "raw")
 PROCESSED_DATA_DIR = os.path.join(ROOT_DIR, "data", "processed")
-ARCHIVED_DATA_DIR = os.path.join(ROOT_DIR, "data", "archived")
+QUARANTINED_DATA_DIR = os.path.join(ROOT_DIR, "data", "quarantined")
 
 # Define Database connection strings
-DB_PATH = os.path.join(ROOT_DIR, "HarvestOperations.db")
-DB_CONN_STR = "sqlite:///{DB_PATH}"
+DB_PARAMS = (
+    f"DRIVER={{ODBC Driver 17 for SQL Server}};"
+    f"SERVER={os.getenv('DB_SERVER')};"
+    f"DATABASE={os.getenv('DB_NAME')};"
+    "Trusted_Connection=yes;"
+    "Encrypt=yes;"
+    "TrustServerCertificate=yes;"
+)
+DB_CONN_STR_SQLSERVER = f"mssql+pyodbc:///?odbc_connect={urllib.parse.quote_plus(DB_PARAMS)}"
 
-# Load .env variables
-load_dotenv()
+DB_PATH = os.path.join(ROOT_DIR, "FundOperations.db")
+DB_CONN_STR_SQLITE = f"sqlite:///{DB_PATH}"
+
 EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
 EMAIL_APP_PASSWORD = os.getenv("EMAIL_APP_PASSWORD")
 MFT_USERNAME = os.getenv("MFT_USERNAME")
 MFT_PASSWORD = os.getenv("MFT_PASSWORD")
 
 MFT_URL = "https://mft.statestreet.com/auth/login"
-MFT_CERT_PATH = str(ROOT_DIR / "certs" / "client.crt")
-MFT_KEY_PATH = str(ROOT_DIR / "certs" / "client.key")
-
+MFT_CERT_PATH = os.getenv("MFT_CERT_PATH")
+MFT_KEY_PATH = os.getenv("MFT_KEY_PATH")
 
 # Logger settings
 LOG_FILE = os.path.join(ROOT_DIR, "logs", "etl.log")
 LOG_LEVEL = "INFO"
 
-NULL_LIKE_VALUES = ["", " ", "NA", "N/A", "NULL", "NONE", "-"]
-
-BOOLEAN_MAP = {
-    "TRUE": True,
-    "FALSE": False,
-    "Y": True,
-    "N": False,
-    "YES": True,
-    "NO": False,
-    "1": True,
-    "0": False,
-}
+NULL_LIKE_VALUES = ["", " ", "NA", "NaN","N/A", "NULL", "NONE", "-"]
 
 # Metadata type map for NAV/INAV files
 FUND_METRICS_TYPE_MAP = {
