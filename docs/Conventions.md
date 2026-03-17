@@ -7,11 +7,11 @@
 | Element | Convention | Example |
 |---|---|---|
 | **Classes** | PascalCase | `DataFrameCleaner`, `INAVBskt`, `Extractor` |
-| **Functions/Methods** | snake_case | `extract()`, `load_to_bronze()`, `clean_data()` |
-| **Helper Methods** | snake_case with leading underscore | `_parse_dates()`, `_clean_str()` |
+| **Public Methods** | snake_case | `extract(self)`, `load_to_bronze(self)`, `clean_data(self)` |
+| **Private Methods** | snake_case with leading underscore | `_parse_dates(self)`, `_clean_str(self)` |
 | **Public Attributes** | snake_case | `self.schema`, `self.file_path` |
+| **Private Attributes** | snake_case with leading underscore | `self._raw_files`, `self._file_path` |
 | **Constants** | UPPER_SNAKE_CASE | `NULL_LIKE_VALUES`, `DB_PATH` |
-| **Variables** | snake_case | `raw_files`, `metrics_df`, `file_path` |
 
 ### Class Structure
 
@@ -22,11 +22,12 @@ class MyExtractor:
     def __init__(self):
         """Initialize instance attributes."""
         self._engine = create_engine(DB_CONN_STR)
-        self._raw_dir = Path(RAW_DATA_DIR)
+        self.raw_dir = Path(RAW_DATA_DIR)
     
     def public_method(self):
         """Public API method."""
         self._helper_method()
+        pass
     
     def _helper_method(self):
         """Private helper method."""
@@ -43,9 +44,6 @@ def extract(self, file_path: Path) -> pd.DataFrame:
     
     Args:
         file_path: Path to raw data file.
-    
-    Returns:
-        DataFrame with extracted data.
     """
     pass
 ```
@@ -59,7 +57,7 @@ def extract(self, file_path: Path) -> pd.DataFrame:
 Use **PascalCase** for database names:
 
 ```sql
-OperationsDB          -- Fund operations data
+FundOperations        -- Fund operations data
 HarvestStoreDB        -- Bloomberg/market data
 ReportsDB             -- Reporting layer
 ```
@@ -128,7 +126,7 @@ CREATE TABLE bronze.fund_metrics (
 
 ### Primary Key Convention
 
-- Primary keys **always end with `_id`**
+- Primary key(s) **always end with `_id`**
 - Format: `{table_name_singular}_id` (use singular form of table name)
 - Examples:
   - `fund_metric_id` (table: `bronze.fund_metrics`)
@@ -224,7 +222,7 @@ WHERE g.loaded_at >= DATEADD(DAY, -30, GETDATE());
 | Helper method | _snake_case | `_parse_dates()` |
 | Constant | UPPER_SNAKE_CASE | `NULL_LIKE_VALUES` |
 | Variable | snake_case | `raw_files` |
-| Database | PascalCase | `OperationsDB` |
+| Database | PascalCase | `FundOperations` |
 | Transactional Table | snake_case_plural | `fund_metrics` |
 | Reference Table | ref_snake_case_plural | `ref_funds` |
 | Column | snake_case_singular | `fund_name` |

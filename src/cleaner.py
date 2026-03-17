@@ -1,7 +1,6 @@
 import pandas as pd
 from config import *
 
-
 class DataFrameCleaner:
     """Clean and typecast DataFrames with optional schema."""
 
@@ -17,7 +16,7 @@ class DataFrameCleaner:
 
         for col in df.columns:
             if col in schema:
-                df[col] = self._cast(df[col], schema[col])
+                df[col] = self.cast(df[col], schema[col])
             elif pd.api.types.is_string_dtype(df[col]) or df[col].dtype == object:
                 df[col] = self._clean_str(df[col])
         return df
@@ -40,14 +39,14 @@ class DataFrameCleaner:
         numeric = pd.to_numeric(cleaned, errors="coerce")
         return numeric.where(~is_percent, numeric/100.0)
 
-    def _cast(self, s: pd.Series, target_type, exceptions = NULL_LIKE_VALUES) -> pd.Series:
+    def cast(self, s: pd.Series, target_type, exceptions = NULL_LIKE_VALUES) -> pd.Series:
         """Cast series to target type."""
 
         if target_type == float:
-            return self._strip_numeric_chars(s)  # fix: removed redundant pd.to_numeric
+            return self._strip_numeric_chars(s)
 
         if target_type == int:
-            return self._strip_numeric_chars(s).round().astype("Int64")  # fix: removed redundant pd.to_numeric
+            return self._strip_numeric_chars(s).round().astype("Int64")
 
         if target_type == bool:
             if pd.api.types.is_numeric_dtype(s):  # fix: guard numeric dtype before .str accessor
@@ -61,11 +60,11 @@ class DataFrameCleaner:
         if str(target_type).lower() in ["datetime64[ns]", "datetime64", "datetime", "timestamp", "date"]:
             if pd.api.types.is_datetime64_any_dtype(s):
                 return s
-            return self._parse_dates(self._clean_str(s))  # fix: clean string before parsing
+            return self.parse_dates(self._clean_str(s))  # fix: clean string before parsing
 
         return s  # unknown type: leave as-is
 
-    def _parse_dates(self, s: pd.Series) -> pd.Series:
+    def parse_dates(self, s: pd.Series) -> pd.Series:
         """Parse dates with multiple formats."""
         result = pd.Series(pd.NaT, index=s.index, dtype="datetime64[ns]")
         mask = s.notna()
@@ -84,8 +83,3 @@ class DataFrameCleaner:
             result.loc[success] = fallback[success]
 
         return result
-
-_default = DataFrameCleaner()
-
-def clean(df: pd.DataFrame, schema=None) -> pd.DataFrame:
-    return _default.clean(df, schema)

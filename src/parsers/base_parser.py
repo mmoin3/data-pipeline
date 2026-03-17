@@ -138,5 +138,14 @@ class BaseParser:
     def row_value(self, row: list[str], index: int, default: str = "") -> str:
         """Safely get a row value by index."""
         return row[index] if index < len(row) else default
+    
+    def insert_timestamp(self, df: pd.DataFrame, column_name: str = "loaded_at") -> pd.DataFrame:
+        """Insert a timestamp column with current time."""
+        df[column_name] = pd.Timestamp.now()
+        return df
+    def insert_filename(self, df: pd.DataFrame, file_name: str, column_name: str = "file_name") -> pd.DataFrame:
+        """Insert a column with the source file name."""
+        df[column_name] = file_name
+        return df
 
     
