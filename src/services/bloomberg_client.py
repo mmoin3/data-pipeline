@@ -32,14 +32,15 @@ class BloombergClient:
             if event.eventType() == Event.SERVICE_STATUS:
                 break
 
+    def __enter__(self):
+        """Context manager entry. Returns self for use in 'with' statement."""
+        return self
+    
     def close(self):
         """Stop Bloomberg session."""
         if self.session:
             self.session.stop()
 
-    def __enter__(self):
-        """Context manager entry. Returns self for use in 'with' statement."""
-        return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Close session on context manager exit."""

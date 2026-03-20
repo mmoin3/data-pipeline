@@ -1,35 +1,35 @@
-import csv, io, os, logging
+import csv, io, logging, sqlalchemy
 import pandas as pd
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 class BaseParser:
     """Simple file reader that detects type by extension and reads into a DataFrame."""
     
-    def __init__(self, path: str):
-        self.path = path
+    def __init__(self, file_path: str):
+        self.path = Path(file_path)
 
-    def read_into_dataframe(self, file_type_override:str=None,**kwargs) -> pd.DataFrame:
+    def read_into_dataframe(self, ext_override:str=None,**kwargs) -> pd.DataFrame:
         """Read file and return DataFrame. Detect type by extension and dispatch.
         Data must already be in tabular for this method to work in isolation
 
-        file_type_override: param can be used to override file extension detection
+        ext_override: param can be used to override file extension detection
         **kwargs: passed directly to pandas read functions, e.g. read_csv or read_excel
         """
-        if file_type_override:
-            ext = file_type_override
-        else:
-            ext = os.path.splitext(self.path)[1].lower()
+        ext = ext_override.lstrip(".").lower() if ext_override else self.path.suffix.lstrip(".").lower()
             
-        if ext in {".csv",".ndm01"}:
+        if ext in {"csv","ndm01"}:
             return pd.read_csv(self.path, **kwargs)
-        if ext in {".xls", ".xlsx", ".xlsm", ".xlsb"}:
+        elif ext in {"xls", "xlsx", "xlsm", "xlsb"}:
             return pd.read_excel(self.path, **kwargs)
-        if ext == ".json":
+        elif ext == "json":
             lines = kwargs.pop("lines", True)
             return pd.read_json(self.path, lines=lines, **kwargs)
-        if ext == ".txt":
+        elif ext == "txt":
             return pd.read_table(self.path, **kwargs)
+        elif ext == "parquet":
+            return pd.read_parquet(self.path, **kwargs)
         else:
             logger.error(f"Unsupported file type: {ext}")
             return pd.DataFrame()
@@ -138,5 +138,14 @@ class BaseParser:
     def row_value(self, row: list[str], index: int, default: str = "") -> str:
         """Safely get a row value by index."""
         return row[index] if index < len(row) else default
+    
+    def insert_timestamp(self, df: pd.DataFrame, column_name: str = "loaded_at") -> pd.DataFrame:
+        """Insert a timestamp column with current time."""
+        df[column_name] = pd.Timestamp.now()
+        return df
+    def insert_filename(self, df: pd.DataFrame, file_name: str, column_name: str = "file_name") -> pd.DataFrame:
+        """Insert a column with the source file name."""
+        df[column_name] = file_name
+        return df
 
     

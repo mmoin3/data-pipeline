@@ -1,96 +1,108 @@
-import requests
-import urllib3
-import os
+# State Street MFT client for file transfers.
+
 import logging
 from pathlib import Path
-from config import MFT_URL, MFT_USERNAME, MFT_PASSWORD, MFT_CERT_PATH, MFT_KEY_PATH
+import requests
+import urllib3
+
+from config import MFT_BASE_URL, MFT_USERNAME, MFT_PASSWORD, MFT_CERT_PATH, MFT_KEY_PATH, RAW_DATA_DIR
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-LOCAL_DOWNLOAD_FOLDER = Path(__file__).parent.parent.parent / "downloads"
-FOLDERS = ["/ETFGlobalHarvest/fromSSC"],  # add or remove folders as needed
 
-def create_session():
-    session = requests.Session()
-    session.cert = (MFT_CERT_PATH, MFT_KEY_PATH)
-    return session
+class StateStreetMFTClient:
+    """Client for downloading and uploading files to State Street MFT."""
 
-def login(session):
-    response = session.post(
-        f"{MFT_URL}/auth/login",
-        data={"username": MFT_USERNAME, "password": MFT_PASSWORD},
-        timeout=10,
-        verify=False)
-    if response.status_code == 200:
-        logger.info("Login successful")
-    else:
-        raise Exception(f"Login failed: {response.status_code}")
-    return session
+    def __init__(self, download_dir: Path = None):
+        self.download_dir = Path(download_dir or RAW_DATA_DIR)
+        self.session = None
 
-def list_files(session, folder_path):
-    response = session.get(
-        f"{MFT_URL}/files{folder_path}",
-        params={
-            "spcmd": "splist",
-            "sort": "filename",
-            "direction": "ASC",
-            "page": 0,
-            "start": 0,
-            "limit": 100,
-            "correlationId": ""
-        },
-        verify=False,
-        timeout=10
-    )
-    response.raise_for_status()
-    data = response.json()
-    files = data.get("files", [])
-    logger.info(f"Found {len(files)} items in {folder_path}")
-    return files
+    def __enter__(self) -> "StateStreetMFTClient":
+        self.session = self._login()
+        return self
 
-def run():
-    session = create_session()
-    login(session)
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.session:
+            self.session.close()
 
-    for folder in FOLDERS:
-        logger.info(f"Processing folder: {folder}")
-        files = list_files(session, folder)
-        print("Raw files:", files)  # temporary
+    def _login(self) -> requests.Session:
+        session = requests.Session()
+        session.cert = (str(MFT_CERT_PATH), str(MFT_KEY_PATH))
+        session.verify = False
 
-        for file in files:
-            if not file.get("directory"):  # skip folders, only download files
-                filename = file.get("filename")
-                download_file(session, folder, filename)
+        response = session.post(
+            f"{MFT_BASE_URL}/auth/login",
+            data={"username": MFT_USERNAME, "password": MFT_PASSWORD},
+            timeout=10,
+        )
 
-    logger.info("All done!")
+        if response.status_code != 200:
+            raise ConnectionError(f"MFT login failed: {response.status_code}")
 
+        logger.info("Authenticated with MFT")
+        return session
 
-def download_file(session, folder_path, filename):
-    """
-    Downloads a single file from the MFT server and saves it locally.
-    """
-    LOCAL_DOWNLOAD_FOLDER.mkdir(parents=True, exist_ok=True)
-    local_path = LOCAL_DOWNLOAD_FOLDER / filename
+    def download(self, remote_path: str, local_filename: str = None, skip_existing: bool = False) -> Path:
+        """Download file from MFT.
 
-    response = session.get(
-        f"{MFT_URL}/files{folder_path}/{filename}",  # path is part of the URL, no params needed
-        verify=False,
-        timeout=30,
-        stream=True
-    )
+        Args:
+            remote_path: Remote file path (e.g., '/ETFGlobalHarvest/fromSSC/file.csv').
+            local_filename: Local filename. Defaults to remote filename.
+            skip_existing: If True, skip download when local file already exists.
+        """
+        filename = local_filename or Path(remote_path).name
+        file_path = self.download_dir / filename
 
-    response.raise_for_status()
+        if skip_existing and file_path.exists():
+            logger.info(f"Skipped (exists): {filename}")
+            return file_path
 
-    with open(local_path, "wb") as f:
-        for chunk in response.iter_content(chunk_size=8192):
-            f.write(chunk)
+        logger.info(f"Downloading: {filename}")
+        response = self.session.get(f"{MFT_BASE_URL}/files{remote_path}?attachment=", timeout=30, stream=True)
+        response.raise_for_status()
 
-    logger.info(f"Downloaded: {filename}")
-    return local_path
+        self.download_dir.mkdir(parents=True, exist_ok=True)
+        with open(file_path, "wb") as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
 
+        logger.info(f"Downloaded: {filename}")
+        return file_path
+
+    def list_files(self, remote_folder: str) -> list:
+        """List files in MFT folder.
+
+        Args:
+            remote_folder: Folder path (e.g., '/ETFGlobalHarvest/fromSSC').
+        """
+        response = self.session.get(f"{MFT_BASE_URL}/files{remote_folder}", timeout=30)
+        response.raise_for_status()
+        return response.json().get("files", [])
+
+    def upload(self, local_file: Path, remote_path: str) -> bool:
+        """Upload file to MFT.
+
+        Args:
+            local_file: Path to local file.
+            remote_path: Remote destination path (e.g., '/uploads/file.csv').
+        """
+        with open(local_file, "rb") as f:
+            response = self.session.post(f"{MFT_BASE_URL}/files{remote_path}", files={"file": f}, timeout=30)
+
+        response.raise_for_status()
+        logger.info(f"Uploaded: {local_file.name}")
+        return True
 
 if __name__ == "__main__":
-    run()
+    logging.basicConfig(level=logging.INFO)
+
+    with StateStreetMFTClient() as client:
+        files = client.list_files("/ETFGlobalHarvest/fromSSC")
+        for f in files:
+            if not f.get("directory"):
+                logger.info(f"  {f.get('filename')} ({f.get('attributes', {}).get('FSR_FILE_SYS_MD.FILE_SIZE', '?')} bytes)")
+
+        client.download("/ETFGlobalHarvest/fromSSC/Harvest_Preburst_INKIND_ALL.20260317.TXT")

@@ -11,8 +11,8 @@ myvenv/
 !.env.example
 
 #logs and databases
-
 *.sqlite
+*.db
 *.log
 
 # Python cache and pytest cache
@@ -23,7 +23,6 @@ __pycache__/
 
 etl_pipeline.egg-info/
 
-# Ignore certificaes for MFT login
-client.crt
-client.key
+# Bronze Layer Data
+data/
 

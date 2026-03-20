@@ -1,117 +1,58 @@
-import os, sys
+# Configuration file for ETL pipeline. Contains constants, maps, file paths, and settings.
+# Serves as a single source of truth for configuration values used across the project.
+
+import os
 import logging
 from pathlib import Path
 from dotenv import load_dotenv
+import urllib
 
-# Save Important paths as constants
-ROOT_DIR = Path(__file__).parent
-RAW_DATA_DIR = os.path.join(ROOT_DIR, "0_raw data")
-CLEANED_DATA_DIR = os.path.join(ROOT_DIR, "cleaned_data")
-ARCHIVE_DIR = os.path.join(ROOT_DIR, "archive")
-
-# Load .env variables
+# Load environment variables from .env file
 load_dotenv()
-MFT_URL = os.getenv("MFT_URL")
-MFT_USERNAME = os.getenv("MFT_USERNAME")
-MFT_PASSWORD = os.getenv("MFT_PASSWORD")
-MFT_CERT_PATH = str(ROOT_DIR / "certs" / "client.crt")
-MFT_KEY_PATH = str(ROOT_DIR / "certs" / "client.key")
 
+# ===== Directory Paths =====
+ROOT_DIR = Path(__file__).resolve().parent
+RAW_DATA_DIR = os.path.join(ROOT_DIR, "data", "raw")
+PROCESSED_DATA_DIR = os.path.join(ROOT_DIR, "data", "processed")
+QUARANTINED_DATA_DIR = os.path.join(ROOT_DIR, "data", "quarantined")
+LOG_DIR = os.path.join(ROOT_DIR, "logs")
+
+# ===== Database Configuration =====
+DB_PARAMS = (
+    f"DRIVER={{ODBC Driver 17 for SQL Server}};"
+    f"SERVER={os.getenv('DB_SERVER')};"
+    f"DATABASE={os.getenv('DB_NAME')};"
+    "Trusted_Connection=yes;"
+    "Encrypt=yes;"
+    "TrustServerCertificate=yes;"
+)
+DB_CONN_STR_SQLSERVER = f"mssql+pyodbc:///?odbc_connect={urllib.parse.quote_plus(DB_PARAMS)}"
+
+# ===== Logging Configuration =====
+LOG_FILE = os.path.join(LOG_DIR, "etl.log")
+LOG_LEVEL = "INFO"
+
+# ===== Email Configuration =====
 EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
 EMAIL_APP_PASSWORD = os.getenv("EMAIL_APP_PASSWORD")
 
-# Logger settings
-LOG_FILE = os.path.join(ROOT_DIR, "logs", "etl.log")
-LOG_LEVEL = "INFO"
+# ===== MFT Configuration =====
+MFT_BASE_URL = os.getenv("MFT_BASE_URL")
+MFT_USERNAME = os.getenv("MFT_USERNAME")
+MFT_PASSWORD = os.getenv("MFT_PASSWORD")
+MFT_CERT_PATH = os.getenv("MFT_CERT_PATH")
+MFT_KEY_PATH = os.getenv("MFT_KEY_PATH")
 
-# Project paths
-RAW_DATA_DIR = os.path.join(ROOT_DIR, "data", "0_raw data")
-BRONZE_DIR = os.path.join(ROOT_DIR, "data", "1_bronze layer data")
-SILVER_DIR = os.path.join(ROOT_DIR, "data", "2_silver layer data")
-GOLD_DIR = os.path.join(ROOT_DIR, "data", "3_gold layer data")
+# ===== Data Cleaning & Type Mapping =====
+NULL_LIKE_VALUES = ["", " ", "NA", "NAN", "N/A", "NULL", "NONE", "-"]
 
-#=========================================================
-# Below is a list of constants and mappings used across the project
-# for typecasting, and handling null-like values in the data.
-#=========================================================
-
-NULL_LIKE_VALUES = ["", " ", "NA", "N/A", "NULL", "NONE", "-"]
-
-BOOLEAN_MAP = {
-    "TRUE": True,
-    "FALSE": False,
-    "Y": True,
-    "N": False,
-    "YES": True,
-    "NO": False,
-    "1": True,
-    "0": False,
-}
-
-# Metadata type map for NAV/INAV files
-FUND_METADATA_TYPE_MAP = {
-    "SS_LONG_CODE": str,
-    "TRADE_DATE": "datetime64[ns]",
-    "FULL_NAME": str,
-    "TICKER": str,
-    "BASE_CURRENCY": str,
-    "CREATION_UNIT_SIZE": float,
-    "DOMICILE": str,
-    "ESTIMATED_DIVIDENDS": float,
-    "PRODUCT_STRUCTURE": str,
-    "EST_INC": float,
-    "SETTLEMENT_CYCLE": str,
-    "ASSET_CLASS": str,
-    "ESTIMATED_EXPENSE": float,
-    "CREATE_FEE": float,
-    "ESTIMATED_CASH_COMPONENT": float,
-    "NAV": float,
-    "UNDISTRIBUTED_NET_INCOME_PER_SHARE": float,
-    "BASKET_MARKET_VALUE": float,
-    "REDEEM_FEE": float,
-    "ACTUAL_CASH_COMPONENT": float,
-    "NAV_PER_CREATION_UNIT": float,
-    "UNDISTRIBUTED_NET_INCOME_PER_CREATION_UNIT": float,
-    "BASKET_SHARES": float,
-    "CREATE_VARIABLE_FEE": float,
-    "NAV_LESS_UNDISTRIBUTED_NET_INCOME": float,
-    "ACTUAL_CASH_IN_LIEU": float,
-    "ESTIMATED_CASH_IN_LIEU": float,
-    "REDEEM_VARIABLE_FEE": float,
-    "ETF_SHARES_OUTSTANDING": float,
-    "ACTUAL_INTEREST": float,
-    "ESTIMATED_INTEREST": float,
-    "EXPENSE_RATIO": float,
-    "TOTAL_NET_ASSETS": float,
-    "ACTUAL_TOTAL_CASH": float,
-    "ESTIMATED_TOTAL_CASH": float,
-    "THRESHOLD": str,
+FUND_METRICS_TYPE_MAP = {
+    "trade_date": "datetime64[ns]",
+    "creation_unit_size": int,
 }
 
 FUND_HOLDINGS_TYPE_MAP = {
-    "CUSIP": str,
-    "TICKER": str,
-    "SEDOL": str,
-    "ISIN": str,
-    "DESCRIPTION": str,
-    "CUR": str,
-    "ISO": str,
-    "SHARES": int,
-    "ORIGINAL_FACE": int,
-    "INTEREST": float,
-    "LOCAL_PRICE": float,
-    "LOCAL_MV": float,
-    "FOREX": float,
-    "BASE_PRICE": float,
-    "BASE_MV": float,
-    "WEIGHT": float,
-    "CIL": str,
-    "EST_DIVIDEND": float,
-    "LOT": int,
-    "NEW": str,
-    "SHARE_CHANGE": int,
-    "INT_FACTOR": int,
-    "PAR_ADJUSTMENT_FACTOR": int,
-    "SUPPLEMENTAL_ID_1": int,
-    "SUPPLEMENTAL_ID_2": str,
+    "trade_date": "datetime64[ns]",
+    "share": int,
+    "supplemental_id_1": int,
 }

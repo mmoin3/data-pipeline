@@ -37,7 +37,7 @@ class INAVBskt(BaseParser):
                 header_idx = self.find_header_idx(block, markers={"CUSIP", "TICKER", "DESCRIPTION"})
                 if header_idx == -1:
                     continue
-                metadata_df = self._extract_metadata(block[:header_idx])
+                metadata_df = self._get_metadata(block[:header_idx])
                 holdings_df = self.rows_to_dataframe(block[header_idx:]).reset_index(drop=True)
                 holdings_df["TRADE_DATE"] = metadata_df["TRADE_DATE"].iloc[0]
                 holdings_df["SS_LONG_CODE"] = metadata_df["SS_LONG_CODE"].iloc[0]
@@ -50,7 +50,7 @@ class INAVBskt(BaseParser):
             logger.error(f"Failed to extract data: {e}")
             return
 
-    def _extract_metadata(self, chunk: list[list[str]]) -> pd.DataFrame:
+    def _get_metadata(self, chunk: list[list[str]]) -> pd.DataFrame:
         """Extract metadata from top lines."""
         metadata = {}
         first_row = chunk[0]
