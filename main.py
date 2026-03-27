@@ -1,43 +1,66 @@
 """
 Main entry point: Configure and run the ingestion pipeline.
-Instantiates components and orchestrates execution.
+Orchestrates file discovery, parsing, and loading.
 """
-
-from config import RAW_DATA_DIR, DB_CONN_STR
-from src.parsers.base_parser import BaseParser
-from src.parsers.inav_bskt import INAVBskt
-from src.cleaner import DataFrameCleaner
-from src.validator import DataValidator
 from pathlib import Path
-import re
 import pandas as pd
+
+from src.parsers.base_parser import BaseParser
+from src.parsers.baskets_parser import BasketsParser
+from src.pipelines.ingester import write_to_bronze
+from config import INBOX_DIR, INGESTION_MAPPINGS
+from src.utils.logger import get_logger
+
+logger = get_logger(__name__)
+
+# Map parser class names to actual classes
+PARSERS_MAP = {
+    "BaseParser": BaseParser,
+    "BasketsParser": BasketsParser
+}
 
 
 def main():
-    """Run ingestion pipeline: discover → read → clean → validate → write → move."""
-    for file_path in RAW_DATA_DIR.iterdir():
-        # print(f"Processing file: {file_path.name}")
+    """Run ingestion pipeline: discover files -> parse -> load to bronze."""
+    for file_path in INBOX_DIR.iterdir():
+        if not file_path.is_file():
+            continue
 
-        if re.search(r"All_Positions*", file_path.stem, re.IGNORECASE):
-            ans = BaseParser(file_path).parse()
-            ans_cleaned = DataFrameCleaner().clean(ans)
-            ans_cols_normalized = _normalize_columns(ans_cleaned)
-            print(ans_cols_normalized.head(2))
-            
+        logger.info(f"Processing file: {file_path.name}")
 
-def _normalize_columns(df: pd.DataFrame) -> pd.DataFrame:
-    """Normalize column names: strip, lowercase, replace spaces/hyphens with underscores.
-    
+        try:
+            mapping = _get_file_mapping(file_path)
+            parser_class = PARSERS_MAP[mapping["parser"]]
+            parser = parser_class(file_path)
+            parsed_data = parser.parse()
+
+            # Load each parsed dataframe to its target table
+            for df_key, target_table in mapping["outputs"].items():
+                if df_key not in parsed_data:
+                    logger.warning(
+                        f"Expected key '{df_key}' not found in parsed data for {file_path.name}")
+                    continue
+
+                df = parsed_data[df_key]
+                load_type = mapping["load_type"]
+                write_to_bronze(df, target_table, load_type, file_path)
+
+        except Exception as e:
+            logger.error(f"Failed to process {file_path.name}: {e}")
+
+
+def _get_file_mapping(file_path: Path) -> dict:
+    """Get ingestion mapping for file based on filename.
+
     Args:
-        df: DataFrame with raw column names.
+        file_path: Path to the file.
     """
-    df.columns = (df.columns.astype(str)
-                  .str.strip()
-                  .str.replace(r'(.)([A-Z][a-z]+)', r'\1_\2', regex=True)  # BasketDate → Basket_Date
-                  .str.replace(r'([a-z0-9])([A-Z])', r'\1_\2', regex=True)  # basketShares → basket_Shares
-                  .str.lower()                                               # basket_date
-                  .str.replace(r"[\-\s+]", "_", regex=True))                # replace spaces/hyphens
-    return df
+    filename = file_path.name
+    for keyword, mapping in INGESTION_MAPPINGS.items():
+        if keyword in filename:
+            return mapping
+    raise ValueError(f"No ingestion mapping found for file: {filename}")
+
 
 if __name__ == "__main__":
     main()

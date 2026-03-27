@@ -154,13 +154,14 @@ CREATE TABLE silver.fund_metrics (
     fund_name VARCHAR(255),
     nav_per_share DECIMAL(18, 8),
     total_nav DECIMAL(18, 2),
-    shares_outstanding DECIMAL(18, 2),
+    shares_outstanding INT,
     currency VARCHAR(3),
+    is_cil BOOLEAN,                   -- booleans prefixed with is_, has_, or in_
     
     -- Metadata / Audit Columns
-    _sourced_from VARCHAR(255),        -- e.g., 'Daily_Net_Asset_Values.CSV'
-    _created_at TIMESTAMP,             -- When loaded into silver
-    _updated_at TIMESTAMP              -- Last modification time
+    _source_name VARCHAR(255),        -- e.g., 'Daily_Net_Asset_Values.CSV'
+    _processed_at TIMESTAMP,          -- timestamps follow Eastern Time
+    _batch_id VARCHAR(255)            -- unique id 
 );
 ```
 
@@ -179,14 +180,28 @@ CREATE TABLE silver.fund_metrics (
 Metadata columns use a **leading underscore** to denote system/audit columns. These are **read-only audit/lineage fields** that track data provenance and lifecycle, NOT calculated metrics.
 
 ```sql
--- Every table in silver and gold layers includes:
-_sourced_from VARCHAR(255)     -- Original source file name or system
-_created_at TIMESTAMP          -- When record was first loaded into silver layer
-_updated_at TIMESTAMP          -- When record was last modified (for SCD Type 2 tracking)
+-- bronze gets metadata for source, batch_id, and ingestion time, silver inherits from bronze and adds
+-- processed timestamp and additional flags, and gold layer inherits from silver and adds published timestamp:
+
+_source_name VARCHAR(255)     -- Original source file name or system
+_batch_id UNIQUEIDENTIFIER    -- identifies which run of the pipeline data was inserted from
+_ingested_at TIMESTAMP        -- When record was first inserted into bronze layer
+_is_valid BOOLEAN             -- Boolean flag to indicate that data failed business logic (e.g negative stock price)
+
+_derived_hash_id              -- A hash id of the cleaned row record to prevent duplication
+_processed_at TIMESTAMP       -- When record was inserted into silver layer
+_error_reason VARCHAR(255)
+_published_at TIMESTAMP       -- When calculated value was inserted into gold layer. modify to show EST.
 ```
 
 **Important:** Metadata columns are for audit trails, lineage tracking, and compliance. Do NOT use them for analytical calculations. For business metrics, create separate calculated columns or use the gold layer.
 
+### Derived Columns
+```sql
+-- Silver layer calculations are based on the record only; no joins a this point
+derived_full_name VARCHAR  -- uesful to combine frequently used data like first name and last name
+derived_revenue FLOAT       -- Calculate from product of price and quantity
+```
 ---
 
 ## Summary Table
@@ -204,4 +219,4 @@ _updated_at TIMESTAMP          -- When record was last modified (for SCD Type 2 
 | Reference Table | ref_snake_case_plural | `ref_funds` |
 | Column | snake_case_singular | `share_count` |
 | Primary Key | *_id | `fund_metric_id` |
-| Metadata | _snake_case | `_sourced_from` |
+| Metadata | _snake_case | `_source_name` |

@@ -2,39 +2,23 @@
 # Serves as a single source of truth for configuration values used across the project.
 
 import os
-import logging
 from pathlib import Path
 from dotenv import load_dotenv
-import urllib
 
 # Load environment variables from .env file
 load_dotenv()
 # ===== Directory Paths =====
 ROOT_DIR = Path(__file__).resolve().parent
-RAW_DATA_DIR = ROOT_DIR / "data" / "raw"
-PROCESSED_DATA_DIR = ROOT_DIR / "data" / "processed"
-QUARANTINED_DATA_DIR = ROOT_DIR / "data" / "quarantined"
-LOG_DIR = ROOT_DIR / "logs"
+INBOX_DIR = ROOT_DIR / "data" / "landing" / "inbox"
+PROCESSED_DIR = ROOT_DIR / "data" / "landing" / "processed"
+FAILED_DIR = ROOT_DIR / "data" / "landing" / "failed"
+BRONZE_DIR = ROOT_DIR / "data" / "bronze"
+SILVER_DIR = ROOT_DIR / "data" / "silver"
+GOLD_DIR = ROOT_DIR / "data" / "gold"
 
 # ===== Database Configuration =====
-DB_PARAMS = (
-    f"DRIVER={{ODBC Driver 17 for SQL Server}};"
-    f"SERVER={os.getenv('DB_SERVER')};"
-    f"DATABASE={os.getenv('DB_NAME')};"
-    "Trusted_Connection=yes;"
-    "Encrypt=yes;"
-    "TrustServerCertificate=yes;"
-)
 DUCKDB_FILE = ROOT_DIR / "data" / "FundOperations.duckdb"
-DB_CONN_STR_DUCKDB = f"duckdb:///{DUCKDB_FILE}"
-# DB_CONN_STR_SQLSERVER = f"mssql+pyodbc:///?odbc_connect={urllib.parse.quote_plus(DB_PARAMS)}"
-
-# Active connection string (toggle which one to use)
-DB_CONN_STR = DB_CONN_STR_DUCKDB
-
-# ===== Logging Configuration =====
-LOG_FILE = LOG_DIR / "etl.log"
-LOG_LEVEL = "INFO"
+DB_CONN_STR = f"duckdb:///{DUCKDB_FILE}"
 
 # ===== Email Configuration =====
 EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS")
@@ -47,150 +31,50 @@ MFT_PASSWORD = os.getenv("MFT_PASSWORD")
 MFT_CERT_PATH = ROOT_DIR.parent/"mmoinclient.crt"
 MFT_KEY_PATH = ROOT_DIR.parent/"mmoinclient.key"
 
-# ===== Data Cleaning & Type Mapping =====
-NULL_LIKE_VALUES = ["", " ", "NA", "NAN", "N/A", "NULL", "NONE", "-"]
 
 # ===== Ingestion Mappings =====
-# Each mapping defines: file pattern, parser class, parser method, and outputs
-# Pattern is tested with: if re.search(pattern, filename)
-# Parser is string name (resolved via get_parsers()) to avoid circular imports
-# Each output defines target_table and schema for each returned dataframe
-INGESTION_MAPPINGS = [
-    {
-        "pattern": r"All_Positions.*\.csv",
-        "parser_class": "BaseParser",
-        "parser_method": "parse",
-        "outputs": [
-            {
-                "target_table": "alphadesk_holdings",
-                "schema": {
-                    "Basket Date": "datetime64[ns]",
-                    "MATURITY DATE": "datetime64[ns]",
-                    "Basket Shares": int,
-                    "ROUND LOT": float,
-                    "PAR": float,
-                    "INTEREST RATE": float,
-                    "CORPORATE ACTION FACTOR": float,
-                    "INTEREST FACTOR": float,
-                    "TIP FACTOR": float,
-                },
-            }
-        ],
+# Defines the ingestion workflow: when a file is discovered, its filename is matched against
+# this mapping to determine (1) which parser to use, (2) how to load the data (append/replace),
+# and (3) where each parsed output goes in the bronze layer.
+#
+# For example, any file with "Harvest_INAVBSKT_ALL" in its name will:
+#   - Be parsed by BasketsParser
+#   - Return two DataFrames: "metrics" and "holdings"
+#   - "metrics" gets loaded into pcf_creation_bskt_metrics
+#   - "holdings" gets loaded into pcf_creation_bskt_holdings
+#   - Use append mode (don't replace existing data)
+#
+# Keys in "outputs" MUST match the keys returned by parser.parse() exactly.
+
+INGESTION_MAPPINGS = {
+    "Harvest_INAVBSKT_ALL": {
+        "parser": "BasketsParser",
+        "load_type": "append",
+        "outputs": {
+            "metrics": "pcf_creation_bskt_metrics",
+            "holdings": "pcf_creation_bskt_holdings"
+        }
     },
-    {
-        "pattern": r"PLF_Positions.*\.csv",
-        "parser_class": "BaseParser",
-        "parser_method": "parse",
-        "outputs": [
-            {
-                "target_table": "plf_holdings",
-                "schema": {
-                    "Basket Date": "datetime64[ns]",
-                    "Basket Shares": int,
-                },
-            }
-        ],
+    "Harvest_BSKT": {
+        "parser": "BasketsParser",
+        "load_type": "append",
+        "outputs": {
+            "metrics": "pcf_inav_bskt_metrics",
+            "holdings": "pcf_inav_bskt_holdings"
+        }
     },
-    {
-        "pattern": r"Daily_Net_Asset_Values.*\.csv",
-        "parser_class": "BaseParser",
-        "parser_method": "parse",
-        "outputs": [
-            {
-                "target_table": "daily_NAVs",
-                "schema": {
-                    "Price Date": "datetime64[ns]",
-                    "Shares/Units Outstanding": int,
-                    "Net Asset Value Per Share": float,
-                    "Total Net Asset Value": float,
-                    "$ Change NAV": float,
-                    "Class Ratio": float,
-                    "Dual Pricing Basis": int,
-                },
-            }
-        ],
+    "All_Positions": {
+        "parser": "BaseParser",
+        "load_type": "append",
+        "outputs": {
+            "data": "all_positions"
+        }
     },
-    {
-        "pattern": r"Accounting_Cash_Statement.*\.csv",
-        "parser_class": "BaseParser",
-        "parser_method": "parse",
-        "outputs": [
-            {
-                "target_table": "accounting_cash_transactions",
-                "schema": {
-                    "Report Date": "datetime64[ns]",
-                    "Post Date": "datetime64[ns]",
-                    "Amount Received": float,
-                    "Disbursed Amount": float,
-                    "Shares/Par Value": int,
-                    "Report Date Starting Balance": float,
-                    "Ending Ledger Balance": float,
-                },
-            }
-        ],
+    "PLF_Positions": {
+        "parser": "BaseParser",
+        "load_type": "append",
+        "outputs": {
+            "data": "plf_positions"
+        }
     },
-    {
-        "pattern": r"Custody_Positions.*\.csv",
-        "parser_class": "BaseParser",
-        "parser_method": "parse",
-        "outputs": [
-            {
-                "target_table": "custody_positions",
-                "schema": {
-                    "Maturity Date": "datetime64[ns]",
-                    "Traded": int,
-                    "Available": int,
-                },
-            }
-        ],
-    },
-    {
-        "pattern": r"Custody_Transactions.*\.csv",
-        "parser_class": "BaseParser",
-        "parser_method": "parse",
-        "outputs": [
-            {
-                "target_table": "custody_transactions",
-                "schema": {
-                    "Trade Date": "datetime64[ns]",
-                    "Pay/Settle Date": "datetime64[ns]",
-                    "Share Quantity": int,
-                    "Net Amount": float,
-                    "Mainframe Time Stamp": "datetime64[ns]",
-                },
-            }
-        ],
-    },
-    {
-        "pattern": r"Cash_Forecast_Transactions.*\.csv",
-        "parser_class": "BaseParser",
-        "parser_method": "parse",
-        "outputs": [
-            {
-                "target_table": "cash_forecast_transactions",
-                "schema": {
-                    "Trade Date": "datetime64[ns]",
-                    "Pay/Settle Date": "datetime64[ns]",
-                    "Share Quantity": int,
-                    "Net Amount": float,
-                    "Mainframe Time Stamp": "datetime64[ns]",
-                },
-            }
-        ],
-    },
-    {
-        "pattern": r"Harvest_BSKT.*\.CSV",
-        "parser_class": "INAVBskt",
-        "parser_method": "extract",
-        "outputs": [
-            {
-                "target_table": "bskt_metrics",
-                "schema": {},
-            },
-            {
-                "target_table": "bskt_holdings",
-                "schema": {},
-            },
-        ],
-    },
-]
+}
