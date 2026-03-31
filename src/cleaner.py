@@ -11,7 +11,7 @@ def clean(data: pd.DataFrame, schema: dict = None, **kwargs) -> pd.DataFrame:
     
     Args:
         data (pd.DataFrame): The DataFrame to clean.
-        schema (dict, optional): A dictionary specifying the target types for columns.
+        schema (dict, optional): A dictionary specifying the target datatypes for columns.
         **kwargs: Additional arguments for specific cleaning functions.
     """
     df = data.copy()
@@ -28,7 +28,7 @@ def _cast(series: pd.Series, target_type, **kwargs) -> pd.Series:
     
     Args:
         series (pd.Series): The Series to cast.
-        target_type: The target type or a string representing the target type.
+        target_type: The target datatype or a string representing the target datatype.
         **kwargs: Additional arguments for specific casting functions.
     """
     if target_type == float:
@@ -47,7 +47,7 @@ def _clean_str(series: pd.Series) -> pd.Series:
     Args:
         series (pd.Series): The Series to clean.
     """
-    stripped = series.astype(str).str.strip().str.lstrip("'\"").str.rstrip("'\"")
+    stripped = series.astype(str).str.strip().str.lstrip("'\"\ ").str.rstrip("'\"\ ")
     return stripped.replace("", pd.NA)
 
 def _extract_numeric(series: pd.Series, number_format: str = "US") -> pd.Series:
