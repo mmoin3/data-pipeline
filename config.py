@@ -2,8 +2,11 @@
 # Serves as a single source of truth for configuration values used across the project.
 
 import os
+import pandas as pd
 from pathlib import Path
 from dotenv import load_dotenv
+import src.parsers
+from functools import partial
 
 # Load environment variables from .env file
 load_dotenv()
@@ -42,23 +45,105 @@ MFT_KEY_PATH = ROOT_DIR.parent/"mmoinclient.key"
 
 INGESTION_MAPPINGS = {
     "Harvest_INAVBSKT_ALL.": {
-        "parser": "extract_pcf",
+        "parser": src.parsers.extract_pcf,
+        "rename": False,
         "load_type": "append",
         "bronze_table": "pcf_inav_baskets"
     },
     "Harvest_BSKT_ALL.": {
-        "parser": "extract_pcf",
+        "parser": src.parsers.extract_pcf,
+        "rename": False,
         "load_type": "append",
         "bronze_table": "pcf_creation_baskets"
     },
     "All_Positions": {
-        "parser": "extract_generic_csv",
+        "parser": pd.read_csv,
+        "rename": False,
         "load_type": "append",
         "bronze_table": "all_positions"
     },
     "PLF_Positions": {
-        "parser": "extract_generic_csv",
+        "parser": pd.read_csv,
         "load_type": "append",
+        "rename": False,
         "bronze_table": "plf_positions"
     },
+    "Accounting_Cash_Statement": {
+        "parser": pd.read_csv,
+        "rename": True,
+        "load_type": "overwrite",
+        "bronze_table": "accounting_cash_statements"
+    },
+    "All_Corporate_Actions": {
+        "parser": pd.read_csv,
+        "rename": True,
+        "load_type": "overwrite",
+        "bronze_table": "all_corporate_actions"
+    },
+    "Cash_Forecast_Transactions": {
+        "parser": pd.read_csv,
+        "rename": True,
+        "load_type": "overwrite",
+        "bronze_table": "cash_forecast_transactions"
+    },
+    "Custody_Positions": {
+        "parser": pd.read_csv,
+        "rename": True,
+        "load_type": "append",
+        "bronze_table": "custody_positions"
+    },
+    "Custody_Transactions": {
+        "parser": pd.read_csv,
+        "rename": True,
+        "load_type": "overwrite",
+        "bronze_table": "custody_transactions"
+    },
+    "Daily_Model_Holdings": {
+        "parser": pd.read_csv,
+        "rename": True,
+        "load_type": "append",
+        "bronze_table": "daily_model_holdings"
+    },
+    "Daily_Net_Asset_Values": {
+        "parser": pd.read_csv,
+        "rename": True,
+        "load_type": "append",
+        "bronze_table": "daily_net_asset_values"
+    },
+    "Distribution_Liability": {
+        "parser": pd.read_csv,
+        "rename": True,
+        "load_type": "append",
+        "bronze_table": "distribution_liabilities"
+    },
+    "Loan_Balances": {
+        "parser": pd.read_csv,
+        "rename": True,
+        "load_type": "append",
+        "bronze_table": "loan_balances"
+    },
+    "Opening_Cash_Balances": {
+        "parser": pd.read_csv,
+        "rename": True,
+        "load_type": "append",
+        "bronze_table": "opening_cash_balances"
+    },
+    "Pending_FX_Accounting": {
+        "parser": pd.read_csv,
+        "rename": True,
+        "load_type": "append",
+        "bronze_table": "pending_fx_accounting_records"
+    },
+    "Top10_FX_Pending": {
+        "parser": pd.read_csv,
+        "rename": True,
+        "load_type": "append",
+        "bronze_table": "top10_fx_pending_records"
+    },
+    "Top10_Net_Asset_Value": {
+        "parser": pd.read_csv,
+        "rename": True,
+        "load_type": "append",
+        "bronze_table": "top10_net_asset_values"
+    }
 }

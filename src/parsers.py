@@ -1,19 +1,6 @@
 import pandas as pd
 import csv
 from pathlib import Path
-from src.utils.logger import get_logger
-
-logger = get_logger(__name__)
-
-
-def extract_generic_csv(file_path: Path) -> pd.DataFrame:
-    """Simple parser for generic CSV files."""
-    return pd.read_csv(file_path)
-
-
-def extract_inkind(file_path: Path) -> pd.DataFrame:
-    """Custom parser for the In-Kind files: Harvest_INKIND.YYYYMMDD.TXT."""
-    return pd.read_csv(file_path, skiprows=1)
 
 
 def extract_pcf(file_path: Path) -> pd.DataFrame:
@@ -23,7 +10,7 @@ def extract_pcf(file_path: Path) -> pd.DataFrame:
     Returns:
         Single unified DataFrame with holdings + metrics columns
     """
-    df = _extract_complex(file_path)
+    df = extract_complex(file_path)
     blocks = _split_into_blocks(df, markers="TRADE_DATE")
 
     enriched_holdings_list = []
@@ -87,42 +74,42 @@ def _extract_pcf_metrics(df: pd.DataFrame) -> dict:
     return metrics_dict
 
 
-def extract(file_path: Path, ext_override: str = None, **kwargs) -> pd.DataFrame:
-    """
-    Simple extracter function that can handle 80% of files by just reading them into a dataframe.
+# def extract(file_path: Path, ext_override: str = None, **kwargs) -> pd.DataFrame:
+#     """
+#     Simple extracter function that can handle 80% of files by just reading them into a dataframe.
 
-    Args:
-        file_path: Path to the input file.
-        ext_override: Optional extension to override the file's extension.
-        **kwargs: Additional arguments for specific parsing functions.
-    """
-    if ext_override:
-        ext = ext_override.lower().lstrip(".")
-    else:
-        ext = file_path.suffix.lower().lstrip(".")
+#     Args:
+#         file_path: Path to the input file.
+#         ext_override: Optional extension to override the file's extension.
+#         **kwargs: Additional arguments for specific parsing functions.
+#     """
+#     if ext_override:
+#         ext = ext_override.lower().lstrip(".")
+#     else:
+#         ext = file_path.suffix.lower().lstrip(".")
 
-    try:
-        if ext in {"csv", "ndm01"}:
-            return pd.read_csv(file_path, **kwargs)
-        elif ext in {"xls", "xlsx", "xlsm", "xlsb"}:
-            return pd.read_excel(
-                file_path,
-                sheet_name=kwargs.pop("sheet_name", 0),
-                engine=kwargs.pop("engine", "openpyxl"),
-                **kwargs,
-            )
-    except Exception as e:
-        try:
-            return _extract_complex(file_path, **kwargs)
-        except Exception as e2:
-            logger.error(f"Failed to extract {file_path.name}\n"
-                         f"with both simple and complex methods: {e}, {e2}")
-            raise e2
-    raise ValueError(
-        f"Unsupported file type '{ext}' for file {file_path.name}")
+#     try:
+#         if ext in {"csv", "ndm01"}:
+#             return pd.read_csv(file_path, **kwargs)
+#         elif ext in {"xls", "xlsx", "xlsm", "xlsb"}:
+#             return pd.read_excel(
+#                 file_path,
+#                 sheet_name=kwargs.pop("sheet_name", 0),
+#                 engine=kwargs.pop("engine", "openpyxl"),
+#                 **kwargs,
+#             )
+#     except Exception as e:
+#         try:
+#             return _extract_complex(file_path, **kwargs)
+#         except Exception as e2:
+#             logger.error(f"Failed to extract {file_path.name}\n"
+#                          f"with both simple and complex methods: {e}, {e2}")
+#             raise e2
+#     raise ValueError(
+#         f"Unsupported file type '{ext}' for file {file_path.name}")
 
 
-def _extract_complex(file_path: Path, **csv_kwargs) -> pd.DataFrame:
+def extract_complex(file_path: Path, **csv_kwargs) -> pd.DataFrame:
     """Extracter function for irregular files that can't be read by pandas.
     Reads the file line by line and splits by a delimiter.
 
@@ -134,13 +121,13 @@ def _extract_complex(file_path: Path, **csv_kwargs) -> pd.DataFrame:
     """
     records = []
     with open(file_path, "r", newline="", encoding="utf-8") as file:
-
         reader = csv.reader(file, delimiter=csv_kwargs.pop(
             "delimiter", ","), **csv_kwargs)
         for row in reader:
             if csv_kwargs.pop("skip_empty", False) and not any(row):
                 continue
             records.append(row)
+        reader.close()
     return pd.DataFrame(records)
 
 

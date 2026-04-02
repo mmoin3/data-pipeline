@@ -9,19 +9,11 @@ from typing import Optional
 from uuid import uuid4
 import pandas as pd
 
-import src.parsers
 from src.ingestor import ingest
 from src.utils.logger import get_logger
 from config import INBOX_DIR, PROCESSED_DIR, FAILED_DIR, BRONZE_DIR, INGESTION_MAPPINGS
 
 logger = get_logger(__name__)
-
-# Map parser names to actual functions
-EXTRACTORS = {
-    "extract_pcf": src.parsers.extract_pcf,
-    "extract_inkind": src.parsers.extract_inkind,
-    "extract_generic_csv": src.parsers.extract_generic_csv,
-}
 
 
 def main() -> None:
@@ -40,6 +32,12 @@ def main() -> None:
                            batch_id, file_path.name)
             _move_to_failed(file_path)
             continue
+        # rename file and use the new name for all subsequent processing steps if rename flag is set in mapping
+        if mapping.get("rename", False):
+            new_name = f"{file_path.stem}_{datetime.now().strftime('%Y%m%d_%H%M')}{file_path.suffix}"
+            new_path = file_path.parent / new_name
+            file_path.rename(new_path)
+            file_path = new_path
 
         # Ingest to bronze
         try:
@@ -85,10 +83,10 @@ def _parse_file(file_path: Path, mapping: dict):
         mapping: Configuration mapping with parser name.
     """
     parser_name = mapping.get("parser")
-    parser_fn = EXTRACTORS.get(parser_name)
-    if not parser_fn:
-        raise ValueError(f"Unknown parser: {parser_name}")
-    return parser_fn(file_path)
+    if not parser_name:
+        raise ValueError(
+            f"Parser not defined in mapping for file {file_path.name}")
+    return parser_name(file_path)
 
 
 def _move_to_processed(file_path: Path) -> None:
@@ -119,7 +117,7 @@ def _move_to_failed(file_path: Path) -> None:
     now = pd.Timestamp.now(tz="US/Eastern")
     # format month as name instead of number
     subdir = FAILED_DIR / f"{now.year}" / \
-        f"{now.strftime('%B')}" / f"{now.day:02d}"
+        f"{now.strftime('%B')}"
     subdir.mkdir(parents=True, exist_ok=True)
     new_path = subdir / file_path.name
     file_path.rename(new_path)

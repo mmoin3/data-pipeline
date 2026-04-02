@@ -1,9 +1,15 @@
 import logging
 from datetime import date, datetime
 from pathlib import Path
-from config import LOG_DIR
 
-LOG_PATH = LOG_DIR / f"pipeline_{date.today().strftime('%Y%m%d')}.log"
+
+def get_log_dir():
+    """Lazy import to avoid circular dependencies."""
+    from config import LOG_DIR
+    return LOG_DIR
+
+
+LOG_PATH = None  # Will be set lazily
 
 
 class PeriodFormatter(logging.Formatter):
@@ -19,11 +25,19 @@ class PeriodFormatter(logging.Formatter):
 
 
 def get_logger(name: str) -> logging.Logger:
+    global LOG_PATH
+
+    # Set LOG_PATH on first call (lazy initialization)
+    if LOG_PATH is None:
+        LOG_PATH = get_log_dir() / \
+            f"pipeline_{date.today().strftime('%Y%m%d')}.log"
+
     logger = logging.getLogger(name)
     if not logger.handlers:
         logger.setLevel(logging.INFO)
 
         # file handler
+        logger.handlers.clear()  # Clear any existing handlers
         fh = logging.FileHandler(LOG_PATH)
         fh.setFormatter(PeriodFormatter(
             "%(asctime)s | %(levelname)s | %(name)s | %(message)s"
