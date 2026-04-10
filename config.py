@@ -15,9 +15,9 @@ ROOT_DIR = Path(__file__).resolve().parent
 WAREHOUSE_DIR = Path(r"C:\Users\mmoin\PYTHON PROJECTS\DataWareHouse")
 LOG_DIR = Path(r"C:\Users\mmoin\PYTHON PROJECTS\logs")
 RAW_DATA_DIR = WAREHOUSE_DIR / "data" / "0_raw data"
-INBOX_DIR = WAREHOUSE_DIR / "data" / "landing" / "inbox"
-PROCESSED_DIR = WAREHOUSE_DIR / "data" / "landing" / "processed"
-FAILED_DIR = WAREHOUSE_DIR / "data" / "landing" / "failed"
+INBOX_DIR = WAREHOUSE_DIR / "landing" / "inbox"
+PROCESSED_DIR = WAREHOUSE_DIR / "landing" / "processed"
+FAILED_DIR = WAREHOUSE_DIR / "landing" / "failed"
 QUARANTINE_DIR = WAREHOUSE_DIR / "data" / "quarantine"
 BRONZE_DIR = WAREHOUSE_DIR / "bronze"
 SILVER_DIR = WAREHOUSE_DIR / "silver"
@@ -194,4 +194,54 @@ INGESTION_MAPPINGS = {
         "load_type": "append",
         "bronze_table": "daily_net_sales"
     },
+    "securities.csv": {
+        "parser": partial(pd.read_csv, na_values="", keep_default_na=False),
+        "rename": False,
+        "load_type": "append",
+        "bronze_table": "all_securities"
+    },
+    "exchanges.csv": {
+        "parser": partial(pd.read_csv, na_values="", keep_default_na=False),
+        "rename": False,
+        "load_type": "append",
+        "bronze_table": "all_exchanges_codes"
+    },
+    "Harvest Canadian ETF_": {
+        "parser": partial(pd.read_excel, sheet_name="Harvest Canadian ETF", dtype={"Shares": str}),
+        "rename": False,
+        "load_type": "append",
+        "bronze_table": "cds_monthly_participant_reports"
+    },
+}
+
+# ===== Silver Layer Transformation Mappings =====
+# Define SQL transformations for each bronze table.
+# Used by src.ingestor.upsert_to_silver() to transform and merge data.
+#
+# Each mapping has:
+#   "transform_sql": SQL query that reads FROM bronze, applies transforms
+#   "merge_keys": List of columns to upsert on (optional, omit for overwrite mode)
+#
+# The SQL query automatically has access to a "bronze" view of the raw bronze table.
+# Include all columns you want in silver, renamed/cast as needed.
+# Metadata columns (ingested_at, source_file, batch_id) pass through automatically.
+#
+# Example: Normalize names, cast qty as float, filter nulls
+# "pcf_inav_baskets": {
+#     "transform_sql": '''
+#         SELECT
+#             LOWER(TRIM(fundcode)) AS fund_id,
+#             LOWER(TRIM(isin)) AS isin_code,
+#             TRY_CAST(units AS FLOAT64) AS units_issued,
+#             ingested_at,
+#             source_file,
+#             batch_id
+#         FROM bronze
+#         WHERE fundcode IS NOT NULL
+#     ''',
+#     "merge_keys": ["fund_id"],
+# }
+
+SILVER_MAPPINGS = {
+    # Add table transformations here as you build silver layer
 }

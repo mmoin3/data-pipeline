@@ -1,98 +1,106 @@
-#========================================================
+# ========================================================
 # Data cleaning and type casting utilities for financial data pipelines.
 # Supports: numeric (US/EU formats), percentages, timezone-aware dates, strings.
 # Handles malformed data, missing values, and international number formats.
-#========================================================
+# ========================================================
 
-import pandas as pd
+import polars as pl
 
-def clean(data: pd.DataFrame, schema: dict = None, **kwargs) -> pd.DataFrame:
-    """Clean and cast DataFrame columns based on provided schema.
-    
+
+def clean(
+    data: pl.DataFrame,
+    schema: dict = None,
+    date_format: str = "%m/%d/%Y",
+    number_format: str = "US",
+) -> pl.DataFrame:
+    """Clean and cast DataFrame columns in three passes:
+      1. Strip whitespace/junk chars and null-empty ALL string columns.
+      2. Cast columns named in schema to their explicit types.
+      3. Infer types for remaining string columns (Int64 → Float64 → leave as String).
+
+    Supported schema types:
+        float, int           — numeric extraction (handles commas, currency symbols)
+        "pct"/"percent"      — numeric extraction divided by 100
+        "datetime"/"date"    — parse to Polars Datetime (UTC)
+
     Args:
-        data (pd.DataFrame): The DataFrame to clean.
-        schema (dict, optional): A dictionary specifying the target datatypes for columns.
-        **kwargs: Additional arguments for specific cleaning functions.
+        data:          Input Polars DataFrame.
+        schema:        Dict mapping column names to target types.
+        date_format:   strptime format string for date columns (default: "%m/%d/%Y").
+        number_format: "US" (1,234.56) or "EU" (1.234,56) (default: "US").
     """
-    df = data.copy()
     schema = schema or {}
+
+    # ── Step 1: clean all string columns first ────────────────────────────
+    string_exprs = [
+        pl.col(col)
+        .str.strip_chars()
+        .str.strip_chars_start("'\"\\ ")
+        .str.strip_chars_end("'\"\\ ")
+        .replace("", None)
+        .alias(col)
+        for col in data.columns
+        if data[col].dtype == pl.String
+    ]
+    df = data.with_columns(string_exprs) if string_exprs else data
+
+    # ── Step 2: explicit casts from schema ────────────────────────────────
+    cast_exprs = []
+    for col, target in schema.items():
+        if col not in df.columns:
+            continue
+
+        if target in (float, int):
+            numeric = pl.col(col).str.extract(r"(-?[\d.,]+)")
+            if number_format.upper() == "EU":
+                numeric = numeric.str.replace_all(
+                    ".", "", literal=True).str.replace_all(",", ".", literal=True)
+            else:
+                numeric = numeric.str.replace_all(",", "", literal=True)
+            numeric = numeric.cast(pl.Float64, strict=False)
+            if target == int:
+                numeric = numeric.round(0).cast(pl.Int64, strict=False)
+            cast_exprs.append(numeric.alias(col))
+
+        elif isinstance(target, str) and target.lower() in ("pct", "percent", "percentage"):
+            numeric = (
+                pl.col(col).str.extract(r"(-?[\d.,]+)")
+                .str.replace_all(",", "", literal=True)
+                .cast(pl.Float64, strict=False)
+            )
+            cast_exprs.append((numeric / 100.0).alias(col))
+
+        elif isinstance(target, str) and target.lower() in ("datetime", "date", "timestamp"):
+            cast_exprs.append(
+                pl.col(col)
+                .str.strptime(pl.Datetime("us", "UTC"), format=date_format, strict=False)
+                .alias(col)
+            )
+
+    df = df.with_columns(cast_exprs) if cast_exprs else df
+
+    # ── Step 3: infer types for columns not named in schema ───────────────
+    infer_exprs = []
     for col in df.columns:
-        if col in schema:
-            df[col] = _cast(df[col], schema[col], **kwargs)
-        else:
-            df[col] = _clean_str(df[col])
-    return df
+        if col in schema or df[col].dtype != pl.String:
+            continue
+        null_count = df[col].null_count()
+        if df[col].cast(pl.Int64, strict=False).null_count() == null_count:
+            infer_exprs.append(pl.col(col).cast(pl.Int64, strict=False))
+        elif df[col].cast(pl.Float64, strict=False).null_count() == null_count:
+            infer_exprs.append(pl.col(col).cast(pl.Float64, strict=False))
+        # else: leave as cleaned string
 
-def _cast(series: pd.Series, target_type, **kwargs) -> pd.Series:
-    """Cast a Series to the target type with cleaning.
-    
-    Args:
-        series (pd.Series): The Series to cast.
-        target_type: The target datatype or a string representing the target datatype.
-        **kwargs: Additional arguments for specific casting functions.
-    """
-    if target_type == float:
-        return _extract_numeric(series)
-    elif target_type == int:
-        return _extract_numeric(series).round().astype("Int64")
-    elif isinstance(target_type, str) and target_type.lower() in ["pct", "percentage", "percent"]:
-        return _extract_numeric(series) / 100.0
-    elif isinstance(target_type, str) and target_type.lower() in ["datetime64[ns]", "datetime64", "datetime", "timestamp", "date"]:
-        return _parse_dates(_clean_str(series), **kwargs)
-    return series
+    return df.with_columns(infer_exprs) if infer_exprs else df
 
-def _clean_str(series: pd.Series) -> pd.Series:
-    """Clean string values in a Series.
-    
-    Args:
-        series (pd.Series): The Series to clean.
-    """
-    stripped = series.astype(str).str.strip().str.lstrip("'\"\ ").str.rstrip("'\"\ ")
-    return stripped.replace("", pd.NA)
-
-def _extract_numeric(series: pd.Series, number_format: str = "US") -> pd.Series:
-    """Extract numeric values from a Series, handling different number formats.
-    
-    Args:
-        series (pd.Series): The Series to extract numeric values from.
-        number_format (str, optional): The number format, either "US" or "EU". Defaults to "US".
-    """
-    if pd.api.types.is_numeric_dtype(series):
-        return series
-    s = series.astype(str).str.strip()
-    cleaned = s.str.extract(r"(-?[\d.,]+)", expand=False)
-    if number_format.upper() == "EU":
-        cleaned = cleaned.str.replace(".", "", regex=False).str.replace(",", ".")
-    else:
-        cleaned = cleaned.str.replace(",", "", regex=False)
-    return pd.to_numeric(cleaned, errors="coerce")
-
-def _parse_dates(series: pd.Series, date_input_format: str = "%m/%d/%Y", 
-                end_of_business_hour: int = 16, timezone: str = "US/Eastern") -> pd.Series:
-    """Parse dates from a Series, handling various formats and timezones.
-    
-    Args:
-        series (pd.Series): The Series to parse dates from.
-        date_input_format (str, optional): The date format to use for parsing. Defaults to "%m/%d/%Y".
-        end_of_business_hour (int, optional): The hour to set for end-of-business day. Defaults to 0.
-        timezone (str, optional): The timezone to localize the dates. Defaults to "US/Eastern".
-    """
-    dt = pd.to_datetime(series, format=date_input_format, errors="coerce") 
-    if dt.isna().all() and series.notna().any():
-        dt = pd.to_datetime(series, format=None, errors="coerce")
-    if dt.dt.tz is not None:
-        return dt.dt.tz_convert(timezone)
-    midnight_mask = (dt.dt.hour == 0) & (dt.dt.minute == 0) & dt.notna()
-    dt.loc[midnight_mask] = dt.loc[midnight_mask] + pd.Timedelta(hours=end_of_business_hour)
-    return dt.dt.tz_localize(timezone)
 
 if __name__ == "__main__":
-    test_df = pd.DataFrame({
-        0: ["  '1,234.56' ", "1,200.00"],
-        1: ["7.89 %", "10%"],
-        2: ["04/17/25", "03/01/26"],
-        3: ["'Some text","Nothigss''"]
+    test_df = pl.DataFrame({
+        "price":  ["  '1,234.56' ", "1,200.00"],
+        "weight": ["7.89 %", "10%"],
+        "date":   ["04/17/25", "03/01/26"],
+        "name":   ["'Some text", "Nothing''"],
     })
-
-    cleaned = clean(test_df, schema={0: float, 1: "pct", 2: "datetime"})
+    cleaned = clean(test_df, schema={
+                    "price": float, "weight": "pct", "date": "datetime"})
     print(cleaned)
