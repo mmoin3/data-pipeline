@@ -25,6 +25,8 @@ def ingest_into_bronze(
     Load a DataFrame to the bronze Delta table. Adds metadata columns
     and writes data in append or overwrite mode.
 
+    Deduplicates exact row matches before ingestion.
+
     Args:
         df:            Input DataFrame.
         source_name:   Source file name.
@@ -42,6 +44,15 @@ def ingest_into_bronze(
 
     if write_mode not in ["overwrite", "append"]:
         raise ValueError("write_mode must be 'overwrite' or 'append'.")
+
+    # Deduplicate exact row matches (all columns)
+    rows_before = len(df)
+    df = df.drop_duplicates(keep='first')
+    rows_after = len(df)
+    duplicates_removed = rows_before - rows_after
+    if duplicates_removed > 0:
+        logger.info(
+            f"Removed {duplicates_removed} duplicate rows from {source_name} (kept {rows_after})")
 
     # Add metadata columns
     out = df.copy()
@@ -69,15 +80,15 @@ def upsert_silver(
     silver_path: Union[str, Path],
 ) -> None:
     """
-    Upsert cleaned DataFrame to silver table based on table type.
+    Unified SCD2 merge pattern for all tables (fact and reference).
 
-    For "fact" tables: append-only with dedup on primary keys.
-    For "reference" tables: SCD2 with versioning (add is_current flag).
-
-    Rows with NULL in primary key columns are handled adaptively:
-    - If all PK columns are non-NULL, use full composite key
-    - If some PK columns are NULL, upsert using only non-NULL key columns
-    - If all PK columns are NULL, skip the row
+    Uses is_current flag to track active records and prevent duplicates:
+    - Deduplicates within incoming batch (on PK + timestamp)
+    - Checks against existing table: skips identical records, updates changed ones
+    - Handles NULL primary keys adaptively:
+      * Full composite key if all PK cols non-NULL
+      * Partial key if some PK cols NULL
+      * Skip if all PK cols NULL
 
     Args:
         cleaned_df: Cleaned pandas DataFrame with silver column names.
@@ -143,58 +154,75 @@ def upsert_silver(
             f"No valid records to upsert to {silver_mapping.silver_table_name}")
         return
 
-    cleaned_df = pd.concat(processed_df_list, ignore_index=True)
+    incoming_df = pd.concat(processed_df_list, ignore_index=True)
 
     delta_log = silver_path / "_delta_log"
     table_exists = delta_log.exists()
 
-    if silver_mapping.table_type == "fact":
-        # Fact: append-only
-        mode = "append" if table_exists else "overwrite"
+    if not table_exists:
+        # First run: initialize table with is_current flag
+        incoming_df["is_current"] = True
+        incoming_df["is_current"] = incoming_df["is_current"].astype(bool)
         deltalake.write_deltalake(
-            silver_path, cleaned_df.reset_index(drop=True), mode=mode, schema_mode="merge")
+            silver_path, incoming_df.reset_index(drop=True), mode="overwrite", schema_mode="overwrite")
         logger.info(
-            f"Upserted fact {silver_mapping.silver_table_name}: {len(cleaned_df)} rows ({mode})")
-
-    elif silver_mapping.table_type == "reference":
-        # Reference: SCD2 with is_current flag
-        if not table_exists:
-            # First run: initialize with SCD2 versioning
-            cleaned_df["is_current"] = True
-            cleaned_df["is_current"] = cleaned_df["is_current"].astype(bool)
-            deltalake.write_deltalake(
-                silver_path, cleaned_df.reset_index(drop=True), mode="overwrite", schema_mode="overwrite")
-            logger.info(
-                f"Created reference {silver_mapping.silver_table_name}: {len(cleaned_df)} rows")
-        else:
-            # Merge: mark old versions inactive, add new versions as current
-            existing = deltalake.DeltaTable(silver_path).to_pandas()
-
-            # Ensure is_current is boolean type
-            existing["is_current"] = existing["is_current"].astype(bool)
-
-            # Find which keys have updates: use merge to identify matching rows
-            # Mark records that match any key in the new batch as is_current=False
-            merge_df = cleaned_df[pk_cols].copy()
-            merge_df["_to_update"] = True
-
-            existing = existing.merge(merge_df, on=pk_cols, how="left")
-            existing.loc[
-                (existing["_to_update"] == True) & (
-                    existing["is_current"] == True),
-                "is_current"
-            ] = False
-            existing = existing.drop(columns=["_to_update"])
-
-            # Add new records with is_current=True
-            cleaned_df["is_current"] = True
-
-            result = pd.concat([existing, cleaned_df], ignore_index=True)
-            result["is_current"] = result["is_current"].astype(bool)
-            deltalake.write_deltalake(
-                silver_path, result.reset_index(drop=True), mode="overwrite", schema_mode="merge")
-            logger.info(
-                f"Upserted reference {silver_mapping.silver_table_name}: {len(cleaned_df)} new rows")
-
+            f"Created {silver_mapping.table_type} table {silver_mapping.silver_table_name}: {len(incoming_df)} rows")
     else:
-        raise ValueError(f"Unknown table_type: {silver_mapping.table_type}")
+        # Merge upsert: deduplicate against existing table, apply SCD2 logic
+        existing_df = deltalake.DeltaTable(silver_path).to_pandas()
+        existing_df["is_current"] = existing_df["is_current"].astype(bool)
+
+        # Identify which incoming records are truly new or changed
+        # Merge on PK to find matches in existing table
+        merge_keys = pk_cols
+        incoming_with_flag = incoming_df.merge(
+            existing_df[merge_keys + ["is_current"]
+                        ].drop_duplicates(subset=merge_keys),
+            on=merge_keys,
+            how="left",
+            indicator=True,
+            suffixes=("", "_existing")
+        )
+
+        # Records to skip: identical record already exists (same PK + is_current=True)
+        if "is_current_existing" in incoming_with_flag.columns:
+            incoming_with_flag["_is_duplicate"] = (
+                incoming_with_flag["is_current_existing"] == True
+            )
+            records_to_add = incoming_with_flag[
+                incoming_with_flag["_is_duplicate"] == False
+            ].drop(columns=["_is_duplicate", "is_current_existing", "_merge"])
+            duplicates_skipped = incoming_with_flag["_is_duplicate"].sum()
+        else:
+            records_to_add = incoming_with_flag.drop(columns=["_merge"])
+            duplicates_skipped = 0
+
+        # Mark old versions of records being updated as not current
+        pks_being_updated = records_to_add[merge_keys].drop_duplicates()
+        existing_df = existing_df.merge(
+            pks_being_updated.assign(_is_updated=True),
+            on=merge_keys,
+            how="left"
+        )
+        existing_df.loc[
+            (existing_df["_is_updated"] == True) & (
+                existing_df["is_current"] == True),
+            "is_current"
+        ] = False
+        existing_df = existing_df.drop(columns=["_is_updated"])
+
+        # Add new records with is_current=True
+        records_to_add["is_current"] = True
+        records_to_add = records_to_add.astype(
+            {col: existing_df[col].dtype for col in records_to_add.columns if col in existing_df.columns})
+
+        result_df = pd.concat([existing_df, records_to_add], ignore_index=True)
+        result_df["is_current"] = result_df["is_current"].astype(bool)
+
+        deltalake.write_deltalake(
+            silver_path, result_df.reset_index(drop=True), mode="overwrite", schema_mode="merge")
+
+        logger.info(
+            f"Upserted {silver_mapping.table_type} {silver_mapping.silver_table_name}: "
+            f"{len(records_to_add)} new/updated rows, {duplicates_skipped} duplicates skipped"
+        )

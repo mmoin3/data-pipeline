@@ -8,6 +8,16 @@ logger = logging.getLogger(__name__)
 def clean_and_cast(df: pd.DataFrame, silver_mapping) -> pd.DataFrame:
     """Clean, rename, and cast DataFrame per SilverMapping config."""
     df = df.copy()
+
+    # Deduplicate exact row matches first (before any transformations)
+    rows_before = len(df)
+    df = df.drop_duplicates(keep='first')
+    rows_after = len(df)
+    duplicates_removed = rows_before - rows_after
+    if duplicates_removed > 0:
+        logger.info(
+            f"Deduplicated {duplicates_removed} duplicate rows (kept {rows_after})")
+
     columns_map = silver_mapping.columns  # dict[source_col -> ColumnMapping]
 
     # Validate config
@@ -34,13 +44,27 @@ def clean_and_cast(df: pd.DataFrame, silver_mapping) -> pd.DataFrame:
             logger.warning(f"Column '{source_col}' not found")
             continue
 
+        # Track how many empty strings will be converted to null
+        empty_str_count = (df[target_col].astype(str).str.strip() == "").sum()
         before = df[target_col].notna().sum()
+
+        # Capture sample of non-empty values that will be lost (for diagnostics)
+        lost_before = df[target_col].copy()
+
         df[target_col] = TYPE_CONVERTERS[col_map.source_dtype](
             df[target_col], col_map)
+
         after = df[target_col].notna().sum()
-        if after < before:
-            logger.warning(
-                f"Column '{target_col}': {before - after} values lost to coercion")
+        lost_count = before - after
+
+        if lost_count > 0:
+            # Log as info since quote-only values are intentionally nulled
+            lost_values = lost_before[(lost_before.notna()) & (
+                df[target_col].isna())].unique()
+            lost_sample = str(list(lost_values[:5]))
+            logger.info(
+                f"Column '{target_col}': {lost_count} values nulled ({empty_str_count} empty, {lost_count - empty_str_count} quote-only). "
+                f"Samples: {lost_sample}")
 
     # Cast unmapped to string, except ingested_at (preserve as datetime)
     for original_col in unmapped:
@@ -80,7 +104,9 @@ def _cast_float(series, col_map):
 def _cast_int(series, col_map):
     if series.dtype == "Int64":
         return series
-    return pd.to_numeric(_normalize_str(series).str.replace(",", ""), errors='coerce').astype("Int64")
+    flt = pd.to_numeric(_normalize_str(
+        series).str.replace(",", ""), errors='coerce')
+    return round(flt).astype("Int64")
 
 
 def _cast_bool(series, col_map):
