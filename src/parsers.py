@@ -177,6 +177,54 @@ def _extract_ucf_metrics(df: pd.DataFrame) -> dict:
 #     raise ValueError(
 #         f"Unsupported file type '{ext}' for file {file_path.name}")
 
+def extract_nbf_sales_qq(file_path: Path) -> pd.DataFrame:
+    """Custom parser for the NBF sales qq files: NBF_SALES_QQ.YYYYMMDD.xlsx.
+    just reads the file and does some basic cleaning and wrangling with bulk transforms like type casting in silver
+    Returns:
+        Single unified DataFrame with all sales qq records
+    """
+    df = pd.read_excel(file_path, header=None)
+    df.columns = ["Region", "Branch"] + df.iloc[0,
+                                                2:].astype(str).str.replace(".", "/").tolist()
+    df_new = pd.DataFrame(
+        data=df.iloc[2:, :].values, columns=df.columns).reset_index(drop=True)
+    df_new = df_new.replace(r"^\s*$", pd.NA, regex=True)
+    df_new = df_new.dropna(how='all').reset_index(drop=True)
+    df_new = df_new[df_new.iloc[:, 0].astype(
+        str).str.upper().isin(["GRAND TOTAL", "TOTAL"]) == False]
+    df_new = df_new.loc[:, ~df_new.columns.str.upper().isin(
+        ["GRAND TOTAL", "TOTAL"])]
+    # convert all columns except Region and Branch to float, coercing errors to NaN
+    df_new[df_new.columns[2:]] = df_new[df_new.columns[2:]].apply(
+        pd.to_numeric, errors='coerce', downcast='float')
+    return df_new
+
+
+def extract_bmo_sales_qq(file_path: Path) -> pd.DataFrame:
+    df = pd.read_excel(file_path, header=None)
+    search_grid = df.iloc[0:6, 0:6].astype(str).apply(
+        lambda x: x.str.strip().str.upper())
+    found = (search_grid == "BRANCH").stack()
+    if not found.any():
+        raise ValueError(
+            "Could not find 'Branch' in the first 6 rows and columns.")
+    anchor_row, anchor_col = found.idxmax()
+    df_new = pd.DataFrame(
+        data=df.iloc[anchor_row+1:, anchor_col:].values, columns=df.iloc[anchor_row, anchor_col:])
+    df_new = df_new.replace(r"^\s*$", pd.NA, regex=True)
+    df_new = df_new.dropna(how='all').reset_index(drop=True)
+    totals_mask = df_new["Branch"].astype(str).str.upper().isin(
+        ["TOTAL", "GRAND TOTAL", "TOTALS"])
+    if totals_mask.any():
+        totals_idx = df_new[totals_mask].index[0]
+        df_new = df_new.iloc[:totals_idx]
+    df_new = df_new.dropna(how='all').reset_index(drop=True)
+    # drop the column with "TOTAL" header if it exists
+    df_new = df_new.loc[:, ~df_new.columns.str.upper().isin(
+        ["TOTAL", "GRAND TOTAL", "TOTALS"])]
+    df_new = df_new.dropna(axis=1, how='all')
+    return df_new
+
 
 def extract_complex(file_path: Path, **csv_kwargs) -> pd.DataFrame:
     """Extracter function for irregular files that can't be read by pandas.
@@ -200,9 +248,8 @@ def extract_complex(file_path: Path, **csv_kwargs) -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    ucf_file = Path(
-        r"C:\Users\mmoin\PYTHON PROJECTS\DataWareHouse\landing\inbox\Harvest_UCF.20260330.CSV")
-    df = extract_ucf(ucf_file)
-    print(df.columns)
-    print(df.head(15))
-    print(df['ORDER_TYPE'])
+    nbf_file = Path(
+        r"C:\Users\mmoin\PYTHON PROJECTS\Commissions Report\data\raw\Broker Data\NBF\NBF_Q1_2026.xlsx")
+    df = extract_nbf_sales_qq(nbf_file)
+    df.info()
+    print(df.head())
