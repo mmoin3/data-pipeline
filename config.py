@@ -116,15 +116,15 @@ INGESTION_MAPPINGS = {
                 "BASE_MV": ColumnMapping(float, "base_market_value"),
                 "WEIGHT": ColumnMapping("pct", "pct_weight"),
                 "CIL": ColumnMapping(bool, "is_cash_in_lieu"),
-                "EST_DIVIDEND": ColumnMapping(float, "estimated_dividend_amount"),
+                "EST_DIVIDEND": ColumnMapping(float, "estimated_dividend"),
                 "LOT": ColumnMapping(str, "lot_size"),
                 "NEW": ColumnMapping(bool, "is_new_in_basket"),
                 "SHARE_CHANGE": ColumnMapping(int, "share_count_delta"),
-                "SUPPLEMENTAL_ID_1": ColumnMapping(int, "total_shares_in_fund"),
+                "SUPPLEMENTAL_ID_1 ": ColumnMapping(int, "total_shares_in_fund"),
                 "TRADE_DATE": ColumnMapping(datetime, "trade_date", "%Y%m%d"),
                 "TICKER_1": ColumnMapping(str, "fund_ticker"),
                 "CREATION_UNIT_SIZE": ColumnMapping(int, "creation_unit_size"),
-                "ESTIMATED_DIVIDENDS": ColumnMapping(float, "estimated_dividend_amount"),
+                "ESTIMATED_DIVIDENDS": ColumnMapping(float, "estimated_dividends_amount"),
                 "ESTIMATED_EXPENSE": ColumnMapping(float, "estimated_expense_amount"),
                 "ESTIMATED_CASH_COMPONENT": ColumnMapping(float, "estimated_cash_component_amount"),
                 "NAV": ColumnMapping(float, "nav_per_unit"),
@@ -133,7 +133,7 @@ INGESTION_MAPPINGS = {
                 "ACTUAL_CASH_COMPONENT": ColumnMapping(float, "actual_cash_component_amount"),
                 "NAV_PER_CREATION_UNIT": ColumnMapping(float, "nav_per_creation_unit"),
                 "UNDISTRIBUTED_NET_INCOME_PER_CREATION_UNIT": ColumnMapping(float, "undistributed_net_income_per_creation_unit"),
-                "BASKET_SHARES": ColumnMapping(int, "share_count"),
+                "BASKET_SHARES": ColumnMapping(int, "basket_share_count"),
                 "NAV_LESS_UNDISTRIBUTED_NET_INCOME": ColumnMapping(float, "nav_less_undistributed_net_income"),
                 "ACTUAL_CASH_IN_LIEU": ColumnMapping(float, "actual_cash_in_lieu_amount"),
                 "ESTIMATED_CASH_IN_LIEU": ColumnMapping(float, "estimated_cash_in_lieu_amount"),
@@ -168,15 +168,15 @@ INGESTION_MAPPINGS = {
                 "BASE_MV": ColumnMapping(float, "base_market_value"),
                 "WEIGHT": ColumnMapping("pct", "pct_weight"),
                 "CIL": ColumnMapping(bool, "is_cash_in_lieu"),
-                "EST_DIVIDEND": ColumnMapping(float, "estimated_dividend_amount"),
+                "EST_DIVIDEND": ColumnMapping(float, "estimated_dividend"),
                 "LOT": ColumnMapping(str, "lot_size"),
                 "NEW": ColumnMapping(bool, "is_new_in_basket"),
                 "SHARE_CHANGE": ColumnMapping(int, "share_count_delta"),
-                "SUPPLEMENTAL_ID_1": ColumnMapping(int, "total_shares_in_fund"),
+                "SUPPLEMENTAL_ID_1 ": ColumnMapping(int, "total_shares_in_fund"),
                 "TRADE_DATE": ColumnMapping(datetime, "trade_date", "%Y%m%d"),
                 "TICKER_1": ColumnMapping(str, "fund_ticker"),
                 "CREATION_UNIT_SIZE": ColumnMapping(int, "creation_unit_size"),
-                "ESTIMATED_DIVIDENDS": ColumnMapping(float, "estimated_dividend_amount"),
+                "ESTIMATED_DIVIDENDS": ColumnMapping(float, "estimated_dividends_amount"),
                 "ESTIMATED_EXPENSE": ColumnMapping(float, "estimated_expense_amount"),
                 "ESTIMATED_CASH_COMPONENT": ColumnMapping(float, "estimated_cash_component_amount"),
                 "NAV": ColumnMapping(float, "nav_per_unit"),
@@ -185,7 +185,7 @@ INGESTION_MAPPINGS = {
                 "ACTUAL_CASH_COMPONENT": ColumnMapping(float, "actual_cash_component_amount"),
                 "NAV_PER_CREATION_UNIT": ColumnMapping(float, "nav_per_creation_unit"),
                 "UNDISTRIBUTED_NET_INCOME_PER_CREATION_UNIT": ColumnMapping(float, "undistributed_net_income_per_creation_unit"),
-                "BASKET_SHARES": ColumnMapping(int, "share_count"),
+                "BASKET_SHARES": ColumnMapping(int, "basket_share_count"),
                 "NAV_LESS_UNDISTRIBUTED_NET_INCOME": ColumnMapping(float, "nav_less_undistributed_net_income"),
                 "ACTUAL_CASH_IN_LIEU": ColumnMapping(float, "actual_cash_in_lieu_amount"),
                 "ESTIMATED_CASH_IN_LIEU": ColumnMapping(float, "estimated_cash_in_lieu_amount"),
@@ -211,8 +211,8 @@ INGESTION_MAPPINGS = {
                 "CUSIP": ColumnMapping(str, "cusip_id"),
                 "ISIN": ColumnMapping(str, "isin_id"),
                 "SEDOL": ColumnMapping(str, "sedol_id"),
-                "BASKET_SHARES": ColumnMapping(int, "share_count"),
-                "COUNTRY_RESTRICTION": ColumnMapping(bool, "is_restricted"),
+                "Basket Shares": ColumnMapping(int, "basket_share_count"),
+                "Country Restriction": ColumnMapping(bool, "is_restricted"),
                 "SUPPLEMENTAL_ID_1": ColumnMapping(int, "total_shares_in_fund"),
                 "SUPPLEMENTAL_ID_2": ColumnMapping(str, "bbg_id"),
                 "RIC": ColumnMapping(str, "reuters_id"),
@@ -233,8 +233,8 @@ INGESTION_MAPPINGS = {
                 "CUSIP": ColumnMapping(str, "cusip_id"),
                 "ISIN": ColumnMapping(str, "isin_id"),
                 "SEDOL": ColumnMapping(str, "sedol_id"),
-                "BASKET_SHARES": ColumnMapping(int, "share_count"),
-                "COUNTRY_RESTRICTION": ColumnMapping(bool, "is_restricted"),
+                "Basket Shares": ColumnMapping(int, "basket_share_count"),
+                "Country Restriction": ColumnMapping(bool, "is_restricted"),
                 "SUPPLEMENTAL_ID_1": ColumnMapping(int, "total_shares_in_fund"),
                 "SUPPLEMENTAL_ID_2": ColumnMapping(str, "bbg_id"),
                 "RIC": ColumnMapping(str, "reuters_id"),
@@ -298,7 +298,7 @@ INGESTION_MAPPINGS = {
                 "CIL_FEE": ColumnMapping(float, "cash_in_lieu_fee"),
                 "ORDER_NUMBER": ColumnMapping(str, "order_number"),
                 "FACTORABLE": ColumnMapping(bool, "is_factorable"),
-                "SUPPLEMENTAL_ID_1": ColumnMapping(int, "total_shares_in_fund"),
+                "SUPPLEMENTAL_ID_1 ": ColumnMapping(int, "total_shares_in_fund"),
                 "SUPPLEMENTAL_ID_2": ColumnMapping(str, "bbg_id"),
             }
         ),
@@ -334,7 +334,7 @@ INGESTION_MAPPINGS = {
                 "ESTIMATED_BKT_MKT": ColumnMapping(float, "estimated_basket_market_value"),
                 "ACTUAL_BKT_MKT": ColumnMapping(float, "actual_basket_market_value"),
                 "ACTUAL_CASH": ColumnMapping(float, "actual_cash_amount"),
-                "ESTIMATED_CASH": ColumnMapping(float, "estimated_cash_amount"),
+                " ESTIMATED_CASH": ColumnMapping(float, "estimated_cash_amount"),
                 "TD_SHRS_OUTSTANDING": ColumnMapping(int, "trade_date_etf_units_outstanding"),
                 "TD_TOTAL_NET_ASSETS": ColumnMapping(float, "trade_date_fund_nav"),
                 "DATE": ColumnMapping(datetime, "record_date", "%Y%m%d"),
@@ -371,7 +371,7 @@ INGESTION_MAPPINGS = {
                 "CIL_FEE": ColumnMapping(float, "cash_in_lieu_fee"),
                 "ORDER_NUMBER": ColumnMapping(str, "order_number"),
                 "FACTORABLE": ColumnMapping(bool, "is_factorable"),
-                "SUPPLEMENTAL_ID_1": ColumnMapping(int, "total_shares_in_fund"),
+                "SUPPLEMENTAL_ID_1 ": ColumnMapping(int, "total_shares_in_fund"),
                 "SUPPLEMENTAL_ID_2": ColumnMapping(str, "bbg_id"),
             }
         ),
@@ -423,7 +423,8 @@ INGESTION_MAPPINGS = {
                 "Shares/Par Value": ColumnMapping(float, "shares_par_value"),
                 "Report Date Starting Balance": ColumnMapping(float, "starting_balance"),
                 "Ending Ledger Balance": ColumnMapping(float, "ending_balance"),
-            }
+            },
+            dedup_timestamp="record_date"
         ),
     ),
     re.compile(r"All_Corporate_Actions\.csv", re.IGNORECASE): IngestionMapping(
@@ -448,7 +449,8 @@ INGESTION_MAPPINGS = {
                 "Entitled Position": ColumnMapping(int, "entitled_position"),
                 "Response Receipt Date": ColumnMapping(datetime, "response_receipt_date", "%Y-%m-%d"),
                 "Response Shares": ColumnMapping(int, "response_share_count"),
-            }
+            },
+            dedup_timestamp="notification_date"
         ),
     ),
     re.compile(r"Cash_Forecast_Transactions\.csv", re.IGNORECASE): IngestionMapping(
@@ -469,7 +471,8 @@ INGESTION_MAPPINGS = {
                 "Net Amount": ColumnMapping(float, "net_amount"),
                 "Trade Date": ColumnMapping(datetime, "trade_date", "%d %b %Y"),
                 "Pay/Settle Date": ColumnMapping(datetime, "settle_date", "%d %b %Y"),
-            }
+            },
+            dedup_timestamp="trade_date"
         ),
     ),
     re.compile(r"Custody_Positions\.csv", re.IGNORECASE): IngestionMapping(
@@ -517,7 +520,8 @@ INGESTION_MAPPINGS = {
                 "Mainframe Time Stamp": ColumnMapping(datetime, "record_datetime", "%d %b %Y %H:%M:%S"),
                 "Sedol": ColumnMapping(str, "sedol_id"),
                 "Isin": ColumnMapping(str, "isin_id"),
-            }
+            },
+            dedup_timestamp="trade_date"
         ),
     ),
     re.compile(r"Daily_Model_Holdings\.csv", re.IGNORECASE): IngestionMapping(
@@ -637,7 +641,7 @@ INGESTION_MAPPINGS = {
         silver_mapping=SilverMapping(
             silver_table_name="pending_fx_accounting_records",
             table_type="fact",
-            primary_keys=("record_date", "ss_id"),
+            primary_keys=("record_date", "ss_id", "trade_id"),
             columns={
                 "Period End Date": ColumnMapping(datetime, "record_date", "%m/%d/%Y"),
                 "Trade Date": ColumnMapping(datetime, "trade_date", "%m/%d/%Y"),
@@ -659,7 +663,7 @@ INGESTION_MAPPINGS = {
         silver_mapping=SilverMapping(
             silver_table_name="top10_fx_pending_records",
             table_type="fact",
-            primary_keys=("record_date", "ss_id"),
+            primary_keys=("record_date", "ss_id", "trade_id"),
             columns={
                 "Accounting Period End Date": ColumnMapping(datetime, "record_date", "%m/%d/%Y"),
                 "Trade Date": ColumnMapping(datetime, "trade_date", "%m/%d/%Y"),
@@ -714,7 +718,7 @@ INGESTION_MAPPINGS = {
                 "ORIGINAL_FACE": ColumnMapping(float, "original_face_value"),
                 "CIL": ColumnMapping(bool, "is_cash_in_lieu"),
                 "SETTLEMENT_DATE": ColumnMapping(datetime, "settlement_date", "%Y%m%d"),
-                "SUPPLEMENTAL_ID_1": ColumnMapping(int, "total_shares_in_fund"),
+                "SUPPLEMENTAL_ID_1 ": ColumnMapping(int, "total_shares_in_fund"),
                 "TOTAL_CREATIONS/REDEMPTIONS": ColumnMapping(int, "total_order_count"),
                 "NAV": ColumnMapping(float, "net_asset_value"),
                 "NAV_PER_CREATION/REDEMPTION": ColumnMapping(float, "nav_per_creation_redemption"),

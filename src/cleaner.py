@@ -45,7 +45,8 @@ def clean_and_cast(df: pd.DataFrame, silver_mapping) -> pd.DataFrame:
             continue
 
         # Track how many empty strings will be converted to null
-        empty_str_count = (df[target_col].astype(str).str.strip() == "").sum()
+        empty_str_count = (df[target_col].astype(
+            str).str.strip().str.lstrip("'") == "").sum()
         before = df[target_col].notna().sum()
 
         # Capture sample of non-empty values that will be lost (for diagnostics)

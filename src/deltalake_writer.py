@@ -25,8 +25,6 @@ def ingest_into_bronze(
     Load a DataFrame to the bronze Delta table. Adds metadata columns
     and writes data in append or overwrite mode.
 
-    Deduplicates exact row matches before ingestion.
-
     Args:
         df:            Input DataFrame.
         source_name:   Source file name.
@@ -44,15 +42,6 @@ def ingest_into_bronze(
 
     if write_mode not in ["overwrite", "append"]:
         raise ValueError("write_mode must be 'overwrite' or 'append'.")
-
-    # Deduplicate exact row matches (all columns)
-    rows_before = len(df)
-    df = df.drop_duplicates(keep='first')
-    rows_after = len(df)
-    duplicates_removed = rows_before - rows_after
-    if duplicates_removed > 0:
-        logger.info(
-            f"Removed {duplicates_removed} duplicate rows from {source_name} (kept {rows_after})")
 
     # Add metadata columns
     out = df.copy()
